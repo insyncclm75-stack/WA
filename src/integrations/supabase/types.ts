@@ -59,6 +59,7 @@ export type Database = {
           name: string
           scheduled_at: string | null
           status: string
+          template_id: string | null
           template_message: string | null
           updated_at: string
           user_id: string
@@ -71,6 +72,7 @@ export type Database = {
           name: string
           scheduled_at?: string | null
           status?: string
+          template_id?: string | null
           template_message?: string | null
           updated_at?: string
           user_id: string
@@ -83,11 +85,20 @@ export type Database = {
           name?: string
           scheduled_at?: string | null
           status?: string
+          template_id?: string | null
           template_message?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contacts: {
         Row: {
@@ -187,6 +198,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      templates: {
+        Row: {
+          category: string | null
+          content: string
+          created_at: string
+          id: string
+          language: string | null
+          name: string
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          content: string
+          created_at?: string
+          id?: string
+          language?: string | null
+          name: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          content?: string
+          created_at?: string
+          id?: string
+          language?: string | null
+          name?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

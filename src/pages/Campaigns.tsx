@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Play, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +30,8 @@ export default function Campaigns() {
   const [campaigns, setCampaigns] = useState<Tables<"campaigns">[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", template_message: "" });
+  const [templates, setTemplates] = useState<Tables<"templates">[]>([]);
+  const [form, setForm] = useState({ name: "", description: "", template_id: "", template_message: "" });
 
   const fetchCampaigns = async () => {
     setLoading(true);
@@ -41,7 +43,14 @@ export default function Campaigns() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchCampaigns(); }, []);
+  useEffect(() => { 
+    const fetchTemplates = async () => {
+      const { data } = await supabase.from("templates").select("*").eq("status", "approved");
+      setTemplates(data || []);
+    };
+    fetchCampaigns();
+    fetchTemplates();
+  }, []);
 
   const createCampaign = async () => {
     if (!user || !form.name) return;
@@ -49,13 +58,14 @@ export default function Campaigns() {
       user_id: user.id,
       name: form.name,
       description: form.description || null,
+      template_id: form.template_id || null,
       template_message: form.template_message || null,
     });
     if (error) {
       toast({ variant: "destructive", title: "Error", description: error.message });
     } else {
       toast({ title: "Campaign created" });
-      setForm({ name: "", description: "", template_message: "" });
+      setForm({ name: "", description: "", template_id: "", template_message: "" });
       setCreateOpen(false);
       fetchCampaigns();
     }
@@ -111,8 +121,27 @@ export default function Campaigns() {
                 <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
               <div>
-                <Label>Message Template</Label>
-                <Textarea value={form.template_message} onChange={(e) => setForm({ ...form, template_message: e.target.value })} placeholder="Hello {{name}}, ..." rows={4} />
+                <Label>WhatsApp Template</Label>
+                <Select 
+                  value={form.template_id} 
+                  onValueChange={(id) => {
+                    const t = templates.find(x => x.id === id);
+                    setForm({ ...form, template_id: id, template_message: t?.content || "" });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an approved template" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Message Preview</Label>
+                <Textarea value={form.template_message} readOnly className="bg-muted/50" rows={4} />
               </div>
               <Button onClick={createCampaign} className="w-full">Create Campaign</Button>
             </div>
