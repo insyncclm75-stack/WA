@@ -49,17 +49,21 @@ serve(async (req) => {
       const { name, category, language, components } = body;
 
       // Call Exotel to submit template
+      const exotelPayload = {
+        whatsapp: {
+          templates: [{ template: { name, category, language, components } }],
+        },
+      };
+      console.log("Exotel request URL:", `${baseUrl}?waba_id=${wabaId}`);
+      console.log("Exotel payload:", JSON.stringify(exotelPayload, null, 2));
+
       const exotelRes = await fetch(`${baseUrl}?waba_id=${wabaId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: exotelAuth,
         },
-        body: JSON.stringify({
-          whatsapp: {
-            templates: [{ name, category, language, components }],
-          },
-        }),
+        body: JSON.stringify(exotelPayload),
       });
 
       const exotelData = await exotelRes.json();

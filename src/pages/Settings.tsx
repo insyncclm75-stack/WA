@@ -279,7 +279,12 @@ export default function Settings() {
 
     if (form.buttonType !== "none" && form.buttonText.trim()) {
       const btn: any = { type: form.buttonType === "url" ? "URL" : form.buttonType === "phone" ? "PHONE_NUMBER" : "QUICK_REPLY", text: form.buttonText };
-      if (form.buttonType === "url") btn.url = form.buttonValue;
+      if (form.buttonType === "url") {
+        btn.url = form.buttonValue;
+        if (form.buttonValue.includes("{{")) {
+          btn.example = [form.buttonValue.replace(/\{\{\d+\}\}/g, "12345")];
+        }
+      }
       if (form.buttonType === "phone") btn.phone_number = form.buttonValue;
       components.push({ type: "BUTTONS", buttons: [btn] });
     }
