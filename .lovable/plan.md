@@ -1,79 +1,58 @@
 
 
-## Real Exotel WhatsApp Template Integration
+## Enhanced Template Builder: Preview, Samples, and Media Uploads
 
-You're right -- the current template system is a mock that just saves templates locally and auto-marks them as "approved" without ever talking to Exotel. Here's the plan to make it real.
+### 1. Live WhatsApp Message Preview
 
----
+A phone-mockup style preview panel will be added to the right side of the template submission dialog. As you type in each field (header, body, footer, buttons), the preview updates in real-time showing how the message will appear on WhatsApp. Placeholder values like `{{1}}` will be replaced with the example values you provide.
 
-### What Changes
+### 2. Sample/Placeholder Text for All Fields
 
-**1. New Secret: `EXOTEL_WABA_ID`**
-The Exotel template APIs require your WhatsApp Business Account (WABA) ID. I'll prompt you to provide this value.
+Each field will show helpful sample text to guide you:
+- **Template Name**: Pre-filled hint like `order_confirmation_01`
+- **Header**: Sample text like `Order Update` or description for media headers
+- **Body**: A realistic sample such as `Hi {{1}}, your order {{2}} has been confirmed and will be delivered by {{3}}.`
+- **Footer**: Sample like `Reply STOP to opt out`
+- **Buttons**: Contextual samples based on button type
 
-**2. New Edge Function: `manage-templates`**
-A backend function that communicates with Exotel's real API. It will support three actions:
+A "Load Sample Template" button will auto-fill all fields with a complete realistic example so you can see how it works.
 
-- **Submit** -- `POST /v2/accounts/{sid}/templates?waba_id={waba_id}` to create and submit a template to WhatsApp for approval via Exotel. The template starts with status `pending` in our database.
-- **Sync** -- `GET /v2/accounts/{sid}/templates?waba_id={waba_id}` to fetch the latest template statuses from Exotel and update our database (approved, rejected, pending).
-- **Delete** -- `DELETE /v2/accounts/{sid}/templates?waba_id={waba_id}&name={name}` to remove a template from Exotel.
+### 3. Media Header Support (Image and Video Upload)
 
-**3. Database Update: `templates` table**
-Add an `exotel_template_id` column to store the Exotel-side ID returned when a template is submitted.
+The Header type dropdown will be expanded from just "No Header / Text" to include:
+- **No Header**
+- **Text Header**
+- **Image Header** -- with file upload (JPG, PNG only, max 5 MB)
+- **Video Header** -- with file upload (MP4 only, max 16 MB)
 
-**4. Updated Settings Page (`src/pages/Settings.tsx`)**
-The UI will change to reflect the real workflow:
+File size limits will be validated on selection with clear error messages shown inline (e.g., "Image must be under 5 MB. Selected file is 7.2 MB."). Invalid file types will also be rejected with a message.
 
-- **"Add New Template" dialog** -- Enhanced with proper WhatsApp template structure:
-  - Header (optional, text or media format)
-  - Body (required, with `{{1}}`, `{{2}}` placeholders)
-  - Footer (optional)
-  - Buttons (optional: URL, phone number, quick reply)
-  - Example values for each placeholder (required by WhatsApp for approval)
-- **Status is real** -- Templates are created as `pending` and the badge reflects the actual Exotel/WhatsApp approval status.
-- **"Sync Status" button** -- Fetches latest statuses from Exotel for all templates and updates the database.
-- **"Refresh from Exotel" capability** -- Pulls all existing templates from your Exotel account so you can import ones already approved.
-- Delete calls the Exotel API to also remove from WhatsApp.
+Uploaded media files will be stored in a dedicated storage bucket and their URL passed to the Exotel API as part of the header component.
 
-**5. Updated Campaign Builder (`src/pages/Campaigns.tsx`)**
-Only templates with `approved` status can be selected when creating a campaign (already partially in place, will be enforced).
+### 4. Storage Bucket for Template Media
+
+A new `template-media` storage bucket will store uploaded header images and videos. RLS policies will ensure only authenticated users can upload and read their own files.
 
 ---
 
 ### Technical Details
 
-```text
-User clicks "Submit Template"
-       |
-       v
-Frontend --> manage-templates Edge Function (action: "submit")
-       |
-       v
-Edge Function --> POST Exotel API /v2/accounts/{sid}/templates?waba_id=...
-       |
-       v
-Exotel submits to WhatsApp for review --> returns template ID
-       |
-       v
-Edge Function saves to DB with status="pending", exotel_template_id=...
-       |
-       v
-User clicks "Sync Status" later
-       |
-       v
-Edge Function --> GET Exotel API /v2/accounts/{sid}/templates?waba_id=...
-       |
-       v
-Updates all template statuses in DB (approved/rejected/pending)
-```
+**Files to modify:**
 
-### Files to Create/Modify
+| File | Changes |
+|------|---------|
+| `src/pages/Settings.tsx` | Add WhatsApp preview panel, expand header types to IMAGE/VIDEO, add file upload with validation, add sample text and "Load Sample" button |
+| `supabase/functions/manage-templates/index.ts` | Accept media URL in header component and pass to Exotel API |
+| DB migration | Create `template-media` storage bucket with RLS policies |
 
-| File | Action |
-|------|--------|
-| `supabase/functions/manage-templates/index.ts` | Create -- handles submit, sync, delete via Exotel API |
-| `src/pages/Settings.tsx` | Modify -- real template form with components, sync button |
-| `src/pages/Campaigns.tsx` | Minor -- ensure only approved templates selectable |
-| DB migration | Add `exotel_template_id` column to `templates` table |
-| Secret | Add `EXOTEL_WABA_ID` |
+**File upload validation rules:**
+- Image: JPG, PNG only; max 5 MB
+- Video: MP4 only; max 16 MB
+- Error shown inline below the upload field with red text
+- File input is cleared on invalid selection
+
+**Preview component behavior:**
+- Styled as a WhatsApp chat bubble (green background, rounded corners, timestamp)
+- Shows header (text or media thumbnail), body with resolved placeholders, footer in lighter text, and buttons as tappable-looking elements
+- Updates live as form fields change
 
