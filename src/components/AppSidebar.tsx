@@ -8,6 +8,7 @@ import {
   BarChart3,
   LogOut,
   MessageCircle,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ const navItems = [
   { to: "/campaigns", icon: Megaphone, label: "Campaigns" },
   { to: "/communications", icon: MessageSquare, label: "Communications" },
   { to: "/reports", icon: BarChart3, label: "Reports" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function AppSidebar() {
