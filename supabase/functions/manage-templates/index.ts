@@ -48,10 +48,13 @@ serve(async (req) => {
     if (action === "submit") {
       const { name, category, language, components } = body;
 
+      // Sanitize template name: Exotel only allows lowercase letters and underscores
+      const sanitizedName = name.toLowerCase().replace(/[^a-z_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+
       // Call Exotel to submit template
       const exotelPayload = {
         whatsapp: {
-          templates: [{ template: { name, category, language, components } }],
+          templates: [{ template: { name: sanitizedName, category, language, components } }],
         },
       };
       console.log("Exotel request URL:", `${baseUrl}?waba_id=${wabaId}`);
