@@ -37,8 +37,9 @@ serve(async (req) => {
     const apiToken = Deno.env.get("EXOTEL_API_TOKEN")!;
     const subdomain = Deno.env.get("EXOTEL_SUBDOMAIN")!;
     const wabaId = Deno.env.get("EXOTEL_WABA_ID")!;
+    const accountSid = Deno.env.get("EXOTEL_ACCOUNT_SID")!;
     const exotelAuth = `Basic ${btoa(`${apiKey}:${apiToken}`)}`;
-    const baseUrl = `https://${subdomain}/v2/accounts/${apiKey}/templates`;
+    const baseUrl = `https://${subdomain}/v2/accounts/${accountSid}/templates`;
 
     const body = await req.json();
     const { action } = body;
@@ -54,7 +55,11 @@ serve(async (req) => {
           "Content-Type": "application/json",
           Authorization: exotelAuth,
         },
-        body: JSON.stringify({ name, category, language, components }),
+        body: JSON.stringify({
+          whatsapp: {
+            templates: [{ name, category, language, components }],
+          },
+        }),
       });
 
       const exotelData = await exotelRes.json();
