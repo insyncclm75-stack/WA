@@ -1,25 +1,79 @@
 
-### Phase 1: Foundation & Security (Backend)
-I will start by setting up the infrastructure using Lovable Cloud (Supabase). This includes:
-- **Database Schema**: Creating tables for `campaigns`, `contacts`, `messages`, and `exotel_credentials`.
-- **Secure Storage**: Setting up private storage buckets for your contact lists (CSV/Excel) and media attachments (images/videos) to ensure your data is safe.
-- **Admin Authentication**: Configuring access so only you, the admin, can access the platform and its sensitive data.
-- **Exotel Setup**: Creating a secure way to store your Exotel API credentials in Supabase secrets, ensuring they are never exposed in the browser code.
 
-### Phase 2: Core Infrastructure (Edge Functions)
-Since we are dealing with external APIs and file processing, I will implement server-side logic (Edge Functions) for:
-- **Exotel Integration**: A secure bridge to the Exotel WhatsApp API to handle message delivery.
-- **File Processing**: An automated parser that reads your uploaded CSV or Excel files and imports contacts directly into your database.
-- **Campaign Logic**: A system to trigger campaigns and track the status of each message sent.
+## Real Exotel WhatsApp Template Integration
 
-### Phase 3: Administrative UI (Frontend)
-I will build a clean, professional dashboard using Tailwind CSS and modern UI components:
-- **Dashboard Overview**: A high-level view of your current campaigns and communication status.
-- **Contact Management**: A simple interface to upload files, preview contacts, and manage your audience.
-- **Campaign Builder**: A step-by-step wizard to create WhatsApp campaigns, upload media, and select your target audience.
-- **Communications Hub**: A real-time log of messages being sent, allowing you to monitor progress live.
+You're right -- the current template system is a mock that just saves templates locally and auto-marks them as "approved" without ever talking to Exotel. Here's the plan to make it real.
 
-### Phase 4: Reports & Analytics
-The final step will be providing clear insights into your campaign's performance:
-- **Status Reports**: Visual summaries of "Sent", "Delivered", "Read", and "Failed" messages.
-- **Exportable Logs**: The ability to view detailed delivery reports for each campaign for auditing and troubleshooting.
+---
+
+### What Changes
+
+**1. New Secret: `EXOTEL_WABA_ID`**
+The Exotel template APIs require your WhatsApp Business Account (WABA) ID. I'll prompt you to provide this value.
+
+**2. New Edge Function: `manage-templates`**
+A backend function that communicates with Exotel's real API. It will support three actions:
+
+- **Submit** -- `POST /v2/accounts/{sid}/templates?waba_id={waba_id}` to create and submit a template to WhatsApp for approval via Exotel. The template starts with status `pending` in our database.
+- **Sync** -- `GET /v2/accounts/{sid}/templates?waba_id={waba_id}` to fetch the latest template statuses from Exotel and update our database (approved, rejected, pending).
+- **Delete** -- `DELETE /v2/accounts/{sid}/templates?waba_id={waba_id}&name={name}` to remove a template from Exotel.
+
+**3. Database Update: `templates` table**
+Add an `exotel_template_id` column to store the Exotel-side ID returned when a template is submitted.
+
+**4. Updated Settings Page (`src/pages/Settings.tsx`)**
+The UI will change to reflect the real workflow:
+
+- **"Add New Template" dialog** -- Enhanced with proper WhatsApp template structure:
+  - Header (optional, text or media format)
+  - Body (required, with `{{1}}`, `{{2}}` placeholders)
+  - Footer (optional)
+  - Buttons (optional: URL, phone number, quick reply)
+  - Example values for each placeholder (required by WhatsApp for approval)
+- **Status is real** -- Templates are created as `pending` and the badge reflects the actual Exotel/WhatsApp approval status.
+- **"Sync Status" button** -- Fetches latest statuses from Exotel for all templates and updates the database.
+- **"Refresh from Exotel" capability** -- Pulls all existing templates from your Exotel account so you can import ones already approved.
+- Delete calls the Exotel API to also remove from WhatsApp.
+
+**5. Updated Campaign Builder (`src/pages/Campaigns.tsx`)**
+Only templates with `approved` status can be selected when creating a campaign (already partially in place, will be enforced).
+
+---
+
+### Technical Details
+
+```text
+User clicks "Submit Template"
+       |
+       v
+Frontend --> manage-templates Edge Function (action: "submit")
+       |
+       v
+Edge Function --> POST Exotel API /v2/accounts/{sid}/templates?waba_id=...
+       |
+       v
+Exotel submits to WhatsApp for review --> returns template ID
+       |
+       v
+Edge Function saves to DB with status="pending", exotel_template_id=...
+       |
+       v
+User clicks "Sync Status" later
+       |
+       v
+Edge Function --> GET Exotel API /v2/accounts/{sid}/templates?waba_id=...
+       |
+       v
+Updates all template statuses in DB (approved/rejected/pending)
+```
+
+### Files to Create/Modify
+
+| File | Action |
+|------|--------|
+| `supabase/functions/manage-templates/index.ts` | Create -- handles submit, sync, delete via Exotel API |
+| `src/pages/Settings.tsx` | Modify -- real template form with components, sync button |
+| `src/pages/Campaigns.tsx` | Minor -- ensure only approved templates selectable |
+| DB migration | Add `exotel_template_id` column to `templates` table |
+| Secret | Add `EXOTEL_WABA_ID` |
+
