@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const navItems = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/contacts", icon: Users, label: "Contacts" },
   { to: "/campaigns", icon: Megaphone, label: "Campaigns" },
   { to: "/communications", icon: MessageSquare, label: "Communications" },

@@ -1,20 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Login() {
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(searchParams.get("signup") === "true");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    setIsSignUp(searchParams.get("signup") === "true");
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,22 +41,36 @@ export default function Login() {
       if (error) {
         toast({ variant: "destructive", title: "Login failed", description: error.message });
       } else {
-        navigate("/");
+        navigate("/dashboard");
       }
     }
     setLoading(false);
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      {/* Back to home */}
+      <div className="mb-6 w-full max-w-md">
+        <Button variant="ghost" size="sm" asChild className="text-muted-foreground">
+          <Link to="/">
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Back to home
+          </Link>
+        </Button>
+      </div>
+
       <Card className="w-full max-w-md border-border shadow-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
             <MessageCircle className="h-7 w-7 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-bold">WhatsApp Campaign Hub</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            {isSignUp ? "Create your account" : "Welcome back"}
+          </CardTitle>
           <CardDescription>
-            {isSignUp ? "Create your admin account" : "Sign in to your dashboard"}
+            {isSignUp
+              ? "Sign up to start managing your WhatsApp campaigns"
+              : "Sign in to your campaign dashboard"}
           </CardDescription>
         </CardHeader>
         <CardContent>
