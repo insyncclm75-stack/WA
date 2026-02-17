@@ -70,7 +70,17 @@ serve(async (req) => {
 
       // Build a readable content string from components for DB storage
       const bodyComp = (components || []).find((c: any) => c.type === "BODY");
-      const contentText = bodyComp?.text || name;
+      const headerComp = (components || []).find((c: any) => c.type === "HEADER");
+      let contentText = bodyComp?.text || name;
+
+      // Include header info in content for display
+      if (headerComp?.format === "IMAGE") {
+        contentText = "[Image Header]\n" + contentText;
+      } else if (headerComp?.format === "VIDEO") {
+        contentText = "[Video Header]\n" + contentText;
+      } else if (headerComp?.format === "TEXT" && headerComp?.text) {
+        contentText = headerComp.text + "\n\n" + contentText;
+      }
 
       // Save to DB as pending
       const { data: inserted, error: dbError } = await supabase
@@ -101,7 +111,6 @@ serve(async (req) => {
 
     // ── SYNC ──
     if (action === "sync") {
-      // Fetch all templates from Exotel
       const exotelRes = await fetch(`${baseUrl}?waba_id=${wabaId}`, {
         method: "GET",
         headers: { Authorization: exotelAuth },
@@ -119,14 +128,12 @@ serve(async (req) => {
       const exotelTemplates = exotelData?.data || exotelData?.templates || exotelData || [];
       let updatedCount = 0;
 
-      // Get our DB templates
       const { data: dbTemplates } = await supabase
         .from("templates")
         .select("id, name, exotel_template_id, status")
         .eq("user_id", user.id);
 
       for (const dbTpl of (dbTemplates || [])) {
-        // Match by exotel_template_id or name
         const match = Array.isArray(exotelTemplates)
           ? exotelTemplates.find((et: any) =>
               (dbTpl.exotel_template_id && et.id === dbTpl.exotel_template_id) ||
@@ -155,13 +162,11 @@ serve(async (req) => {
     if (action === "delete") {
       const { template_id, template_name } = body;
 
-      // Delete from Exotel
       const exotelRes = await fetch(`${baseUrl}?waba_id=${wabaId}&name=${encodeURIComponent(template_name)}`, {
         method: "DELETE",
         headers: { Authorization: exotelAuth },
       });
 
-      // Delete from DB regardless (user may want to remove even if Exotel fails)
       const { error: dbError } = await supabase
         .from("templates")
         .delete()
