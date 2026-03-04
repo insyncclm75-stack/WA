@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useRef, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,44 +25,62 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-
-  const resolveAdmin = async (userId: string) => {
-    const { data } = await supabase.rpc("has_role", {
-      _user_id: userId,
-      _role: "platform_admin" as any,
-    });
-    setIsPlatformAdmin(!!data);
-  };
+  // Version counter to discard stale resolveAdmin results
+  const adminCheckRef = useRef(0);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === "INITIAL_SESSION") return;
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          // Resolve admin inline — avoids stale loading when user?.id hasn't changed
-          resolveAdmin(session.user.id).then(() => setLoading(false));
-        } else {
-          setIsPlatformAdmin(false);
-          setLoading(false);
+    // Single handler for all auth events
+    const handleSession = async (session: Session | null) => {
+      setSession(session);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        const version = ++adminCheckRef.current;
+        try {
+          const { data } = await supabase.rpc("has_role", {
+            _user_id: currentUser.id,
+            _role: "platform_admin" as any,
+          });
+          // Only apply if this is still the latest check
+          if (adminCheckRef.current === version) {
+            setIsPlatformAdmin(!!data);
+            setLoading(false);
+          }
+        } catch {
+          if (adminCheckRef.current === version) {
+            setIsPlatformAdmin(false);
+            setLoading(false);
+          }
         }
+      } else {
+        adminCheckRef.current++;
+        setIsPlatformAdmin(false);
+        setLoading(false);
+      }
+    };
+
+    // Bootstrap from existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session);
+    });
+
+    // Listen for all subsequent auth events (sign-in, sign-out, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        handleSession(session);
       }
     );
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await resolveAdmin(session.user.id);
-      }
-      setLoading(false);
-    });
 
     return () => subscription.unsubscribe();
   }, []);
 
   const signOut = async () => {
+    // Eagerly clear state so UI reacts immediately
+    adminCheckRef.current++;
+    setSession(null);
+    setUser(null);
+    setIsPlatformAdmin(false);
     await supabase.auth.signOut();
   };
 

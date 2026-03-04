@@ -195,7 +195,26 @@ export default function Settings() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchTemplates(); }, [currentOrg]);
+  useEffect(() => {
+    if (!currentOrg) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("templates")
+        .select("*")
+        .eq("org_id", currentOrg.id)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        toast({ variant: "destructive", title: "Error fetching templates", description: error.message });
+      } else {
+        setTemplates((data as unknown as TemplateRow[]) || []);
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [currentOrg]);
 
   // Clear media when header type changes
   useEffect(() => {

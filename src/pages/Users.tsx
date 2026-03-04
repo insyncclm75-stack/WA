@@ -71,7 +71,21 @@ export default function Users() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchUsers(); }, [currentOrg]);
+  useEffect(() => {
+    if (!currentOrg) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await callManageUsers({ action: "list" });
+        if (!cancelled) setUsers(data.users || []);
+      } catch (err: any) {
+        if (!cancelled) toast({ variant: "destructive", title: "Error", description: err.message });
+      }
+      if (!cancelled) setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [currentOrg]);
 
   const addUser = async () => {
     if (!newUser.email || !newUser.password || !newUser.role) return;

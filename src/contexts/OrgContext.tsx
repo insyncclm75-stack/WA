@@ -44,13 +44,16 @@ export const useOrg = () => useContext(OrgContext);
 const LS_KEY = "wa_current_org_id";
 
 export function OrgProvider({ children }: { children: ReactNode }) {
-  const { user, isPlatformAdmin } = useAuth();
+  const { user, isPlatformAdmin, loading: authLoading } = useAuth();
   const [orgs, setOrgs] = useState<OrgMembership[]>([]);
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
   const [orgRole, setOrgRole] = useState<"admin" | "member" | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchOrgs = useCallback(async () => {
+    // Wait for auth to finish before fetching orgs
+    if (authLoading) return;
+
     if (!user || isPlatformAdmin) {
       setOrgs([]);
       setCurrentOrg(null);
@@ -58,6 +61,8 @@ export function OrgProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+
+    setLoading(true);
 
     const { data: memberships } = await supabase
       .from("org_memberships")
@@ -88,10 +93,19 @@ export function OrgProvider({ children }: { children: ReactNode }) {
     }
 
     setLoading(false);
-  }, [user, isPlatformAdmin]);
+  }, [user, isPlatformAdmin, authLoading]);
 
   useEffect(() => {
-    fetchOrgs();
+    let cancelled = false;
+
+    const run = async () => {
+      await fetchOrgs();
+    };
+    run();
+
+    return () => {
+      cancelled = true;
+    };
   }, [fetchOrgs]);
 
   const switchOrg = (orgId: string) => {

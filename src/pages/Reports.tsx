@@ -18,13 +18,16 @@ export default function Reports() {
 
   useEffect(() => {
     if (!currentOrg) return;
+    let cancelled = false;
     supabase.from("campaigns").select("*").eq("org_id", currentOrg.id).order("created_at", { ascending: false }).then(({ data }) => {
-      setCampaigns(data ?? []);
+      if (!cancelled) setCampaigns(data ?? []);
     });
+    return () => { cancelled = true; };
   }, [currentOrg]);
 
   useEffect(() => {
     if (!currentOrg) return;
+    let cancelled = false;
     const fetchReport = async () => {
       setLoading(true);
       let query = supabase.from("messages").select("status").eq("org_id", currentOrg.id);
@@ -32,6 +35,7 @@ export default function Reports() {
         query = query.eq("campaign_id", selectedCampaign);
       }
       const { data } = await query;
+      if (cancelled) return;
       const msgs = data ?? [];
       const counts: Record<string, number> = { pending: 0, sent: 0, delivered: 0, read: 0, failed: 0 };
       msgs.forEach((m) => { counts[m.status] = (counts[m.status] || 0) + 1; });
@@ -39,6 +43,7 @@ export default function Reports() {
       setLoading(false);
     };
     fetchReport();
+    return () => { cancelled = true; };
   }, [selectedCampaign, currentOrg]);
 
   const totalMessages = statusData.reduce((s, d) => s + d.value, 0);

@@ -83,7 +83,18 @@ export default function Templates() {
   };
 
   useEffect(() => {
-    fetchTemplates();
+    if (!currentOrg) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("templates")
+        .select("*")
+        .eq("org_id", currentOrg.id)
+        .order("created_at", { ascending: false });
+      if (!cancelled) { setTemplates(data ?? []); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
   }, [currentOrg]);
 
   const openCreate = () => {

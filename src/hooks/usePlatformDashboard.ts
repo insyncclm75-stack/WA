@@ -146,7 +146,7 @@ export function usePlatformDashboard() {
   const [data, setData] = useState<PlatformDashboardData>(EMPTY_DATA);
   const [loading, setLoading] = useState(true);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (signal?: { cancelled: boolean }) => {
     setLoading(true);
     try {
       const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
@@ -174,6 +174,8 @@ export function usePlatformDashboard() {
         supabase.from("templates").select("id, name, status, org_id"),
         supabase.from("org_achievements").select("org_id, achievement_id, unlocked_at").order("unlocked_at", { ascending: false }).limit(20),
       ]);
+
+      if (signal?.cancelled) return;
 
       const orgs = orgsRes.data ?? [];
       const memberships = membershipsRes.data ?? [];
@@ -366,6 +368,7 @@ export function usePlatformDashboard() {
       feed.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
       const activityFeed = feed.slice(0, 20);
 
+      if (signal?.cancelled) return;
       setData({
         summary,
         organizations: orgRows,
@@ -376,14 +379,21 @@ export function usePlatformDashboard() {
       });
     } catch (err) {
       console.error("Platform dashboard fetch error:", err);
+      if (!signal?.cancelled) setData(EMPTY_DATA);
     } finally {
-      setLoading(false);
+      if (!signal?.cancelled) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchAll();
+    const signal = { cancelled: false };
+    fetchAll(signal);
+    return () => { signal.cancelled = true; };
   }, [fetchAll]);
 
-  return { data, loading, refresh: fetchAll };
+  const refresh = useCallback(() => {
+    fetchAll({ cancelled: false });
+  }, [fetchAll]);
+
+  return { data, loading, refresh };
 }

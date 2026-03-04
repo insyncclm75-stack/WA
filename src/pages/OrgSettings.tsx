@@ -34,6 +34,7 @@ export default function OrgSettings() {
 
   useEffect(() => {
     if (!currentOrg) return;
+    let cancelled = false;
     setName(currentOrg.name);
     setWebsite(currentOrg.website ?? "");
     setIndustry(currentOrg.industry ?? "");
@@ -42,6 +43,7 @@ export default function OrgSettings() {
     supabase.functions
       .invoke("manage-org", { body: { action: "get_credentials", org_id: currentOrg.id } })
       .then(({ data }) => {
+        if (cancelled) return;
         if (data?.credentials) {
           const c = data.credentials;
           setCreds({
@@ -55,6 +57,7 @@ export default function OrgSettings() {
           setIsConfigured(c.is_configured);
         }
       });
+    return () => { cancelled = true; };
   }, [currentOrg]);
 
   const saveProfile = async () => {

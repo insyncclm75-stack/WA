@@ -36,7 +36,20 @@ export default function Contacts() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchContacts(); }, [currentOrg]);
+  useEffect(() => {
+    if (!currentOrg) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("contacts")
+        .select("*")
+        .eq("org_id", currentOrg.id)
+        .order("created_at", { ascending: false });
+      if (!cancelled) { setContacts(data ?? []); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [currentOrg]);
 
   const addContact = async () => {
     if (!user || !currentOrg || !newContact.phone_number) return;

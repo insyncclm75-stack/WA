@@ -49,12 +49,21 @@ export default function Campaigns() {
 
   useEffect(() => {
     if (!currentOrg) return;
-    const fetchTemplates = async () => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from("campaigns")
+        .select("*")
+        .eq("org_id", currentOrg.id)
+        .order("created_at", { ascending: false });
+      if (!cancelled) { setCampaigns(data ?? []); setLoading(false); }
+    })();
+    (async () => {
       const { data } = await supabase.from("templates").select("*").eq("status", "approved").eq("org_id", currentOrg.id);
-      setTemplates(data || []);
-    };
-    fetchCampaigns();
-    fetchTemplates();
+      if (!cancelled) setTemplates(data || []);
+    })();
+    return () => { cancelled = true; };
   }, [currentOrg]);
 
   const createCampaign = async () => {

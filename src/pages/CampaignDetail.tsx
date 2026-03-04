@@ -24,6 +24,7 @@ export default function CampaignDetail() {
 
   useEffect(() => {
     if (!id || !currentOrg) return;
+    let cancelled = false;
     const load = async () => {
       const [campRes, contactsRes, assignedRes, msgsRes] = await Promise.all([
         supabase.from("campaigns").select("*").eq("id", id).eq("org_id", currentOrg.id).maybeSingle(),
@@ -31,6 +32,7 @@ export default function CampaignDetail() {
         supabase.from("campaign_contacts").select("contact_id").eq("campaign_id", id),
         supabase.from("messages").select("*, contacts(name, phone_number)").eq("campaign_id", id).eq("org_id", currentOrg.id).order("created_at", { ascending: false }),
       ]);
+      if (cancelled) return;
       setCampaign(campRes.data);
       setAllContacts(contactsRes.data ?? []);
       const ids = new Set((assignedRes.data ?? []).map((a) => a.contact_id));
@@ -39,6 +41,7 @@ export default function CampaignDetail() {
       setMessages((msgsRes.data as any) ?? []);
     };
     load();
+    return () => { cancelled = true; };
   }, [id, currentOrg]);
 
   const toggleContact = (contactId: string) => {

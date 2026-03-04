@@ -51,13 +51,29 @@ export default function Communications() {
     setLoading(false);
   };
 
-  useEffect(() => { fetchMessages(); }, [filter, currentOrg]);
+  useEffect(() => {
+    if (!currentOrg) return;
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      let query = supabase
+        .from("messages")
+        .select("id, content, status, sent_at, created_at, error_message, campaigns(name), contacts(name, phone_number)")
+        .eq("org_id", currentOrg.id)
+        .order("created_at", { ascending: false })
+        .limit(200);
+      if (filter !== "all") query = query.eq("status", filter);
+      const { data } = await query;
+      if (!cancelled) { setMessages((data as any) ?? []); setLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [filter, currentOrg]);
 
   // Realtime subscription scoped by org_id
   useEffect(() => {
     if (!currentOrg) return;
     const channel = supabase
-      .channel("messages-realtime")
+      .channel(`messages-realtime-${currentOrg.id}`)
       .on("postgres_changes", {
         event: "*",
         schema: "public",
@@ -69,7 +85,7 @@ export default function Communications() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [filter, currentOrg]);
+  }, [currentOrg]);
 
   return (
     <DashboardLayout>
