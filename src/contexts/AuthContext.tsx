@@ -41,9 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setLoading(true);
+          // Resolve admin inline — avoids stale loading when user?.id hasn't changed
+          resolveAdmin(session.user.id).then(() => setLoading(false));
         } else {
           setIsPlatformAdmin(false);
+          setLoading(false);
         }
       }
     );
@@ -59,12 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Resolve admin role whenever user changes
-  useEffect(() => {
-    if (!user) return;
-    resolveAdmin(user.id).then(() => setLoading(false));
-  }, [user?.id]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
