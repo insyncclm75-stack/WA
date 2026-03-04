@@ -25,53 +25,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [adminChecked, setAdminChecked] = useState(false);
 
-  // Auth listener — keep synchronous, no async work
+  const resolveAdmin = async (userId: string) => {
+    const { data } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "platform_admin" as any,
+    });
+    setIsPlatformAdmin(!!data);
+  };
+
   useEffect(() => {
+    // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
+        if (event === "INITIAL_SESSION") return; // handled by getSession below
         setSession(session);
         setUser(session?.user ?? null);
-        if (!session?.user) {
-          setIsPlatformAdmin(false);
-          setAdminChecked(true);
+        if (session?.user) {
+          await resolveAdmin(session.user.id);
         } else {
-          setAdminChecked(false); // will be resolved by the effect below
+          setIsPlatformAdmin(false);
         }
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Initial session — await admin check before clearing loading
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (!session?.user) {
-        setIsPlatformAdmin(false);
-        setAdminChecked(true);
+      if (session?.user) {
+        await resolveAdmin(session.user.id);
       }
+      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
-
-  // Separate effect: check platform admin role once user is known
-  useEffect(() => {
-    if (!user) return;
-    let cancelled = false;
-    supabase.rpc("has_role", { _user_id: user.id, _role: "platform_admin" as any })
-      .then(({ data }) => {
-        if (!cancelled) {
-          setIsPlatformAdmin(!!data);
-          setAdminChecked(true);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [user?.id]);
-
-  // Only mark fully loaded once auth + admin check are both done
-  useEffect(() => {
-    if (adminChecked) setLoading(false);
-  }, [adminChecked]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
