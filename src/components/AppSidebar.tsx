@@ -15,6 +15,7 @@ import {
   Building2,
   FileText,
   Wallet,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,7 @@ export function AppSidebar() {
       { to: "/campaigns", icon: Megaphone, label: "Campaigns" },
       { to: "/templates", icon: FileText, label: "Templates" },
       { to: "/communications", icon: MessageSquare, label: "Communications" },
+      { to: "/automations", icon: Zap, label: "Automations" },
       { to: "/reports", icon: BarChart3, label: "Reports" },
       { to: "/settings", icon: Settings, label: "Settings" },
     ] : []),
