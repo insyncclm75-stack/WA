@@ -66,78 +66,101 @@ serve(async (req) => {
           comp.example?.header_handle?.[0]
         ) {
           const mediaUrl = comp.example.header_handle[0];
-          console.log("Uploading media to Meta via Exotel:", mediaUrl);
+          console.log("Processing media header, URL:", mediaUrl);
 
-          // Step 1: Create upload session
-          const uploadSessionUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/media-upload-sessions?waba_id=${creds.wabaId}`;
+          try {
+            // Fetch the media to get its size and type
+            const mediaRes = await fetch(mediaUrl);
+            if (!mediaRes.ok) {
+              return new Response(JSON.stringify({ error: "Failed to fetch media file from storage", details: `HTTP ${mediaRes.status}` }), {
+                status: 200,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+            const mediaBytes = await mediaRes.arrayBuffer();
+            const mediaBuffer = new Uint8Array(mediaBytes);
+            const contentType = mediaRes.headers.get("content-type") || "application/octet-stream";
+            const fileSize = mediaBuffer.length;
+            console.log("Media size:", fileSize, "type:", contentType);
 
-          // Fetch the media to get its size and type
-          const mediaRes = await fetch(mediaUrl);
-          if (!mediaRes.ok) {
-            return new Response(JSON.stringify({ error: "Failed to fetch media file", details: `HTTP ${mediaRes.status}` }), {
+            // Step 1: Create resumable upload session via Exotel
+            const sessionUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/uploads?waba_id=${creds.wabaId}`;
+            console.log("Creating upload session:", sessionUrl);
+            const sessionRes = await fetch(sessionUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: exotelAuth,
+              },
+              body: JSON.stringify({
+                file_length: String(fileSize),
+                file_type: contentType,
+              }),
+            });
+            const sessionText = await sessionRes.text();
+            console.log("Upload session response:", sessionRes.status, sessionText);
+
+            let sessionData: any;
+            try { sessionData = JSON.parse(sessionText); } catch { sessionData = { raw: sessionText }; }
+
+            const uploadSessionId = sessionData?.id || sessionData?.upload_id || sessionData?.data?.id;
+            if (!sessionRes.ok || !uploadSessionId) {
+              console.error("Upload session failed, returning error to client");
+              return new Response(JSON.stringify({
+                error: "Media upload to WhatsApp failed. You can still create text-only templates.",
+                details: sessionData,
+                hint: "Exotel may not support media upload via API. Try creating media templates through the Exotel dashboard.",
+              }), {
+                status: 200,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+
+            // Step 2: Upload the media bytes
+            const uploadUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/uploads/${uploadSessionId}?waba_id=${creds.wabaId}`;
+            console.log("Uploading media bytes to:", uploadUrl);
+            const uploadRes = await fetch(uploadUrl, {
+              method: "POST",
+              headers: {
+                Authorization: exotelAuth,
+                "Content-Type": contentType,
+                file_offset: "0",
+              },
+              body: mediaBuffer,
+            });
+            const uploadText = await uploadRes.text();
+            console.log("Media upload response:", uploadRes.status, uploadText);
+
+            let uploadData: any;
+            try { uploadData = JSON.parse(uploadText); } catch { uploadData = { raw: uploadText }; }
+
+            const handle = uploadData?.h || uploadData?.handle || uploadData?.data?.h;
+            if (!uploadRes.ok || !handle) {
+              return new Response(JSON.stringify({
+                error: "Media upload to WhatsApp failed at upload step.",
+                details: uploadData,
+              }), {
+                status: 200,
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+              });
+            }
+
+            // Replace the URL with the actual media handle
+            processedComponents[i] = {
+              ...comp,
+              example: { header_handle: [handle] },
+            };
+            console.log("Got media handle:", handle);
+          } catch (mediaErr) {
+            console.error("Media upload error:", (mediaErr as Error).message);
+            return new Response(JSON.stringify({
+              error: "Media processing failed: " + (mediaErr as Error).message,
+              hint: "Try creating the template without a media header, or use the Exotel dashboard for media templates.",
+            }), {
               status: 200,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
-          const mediaBytes = await mediaRes.arrayBuffer();
-          const mediaBuffer = new Uint8Array(mediaBytes);
-          const contentType = mediaRes.headers.get("content-type") || "application/octet-stream";
-          const fileSize = mediaBuffer.length;
-
-          console.log("Media size:", fileSize, "type:", contentType);
-
-          const sessionRes = await fetch(uploadSessionUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: exotelAuth,
-            },
-            body: JSON.stringify({
-              file_length: fileSize,
-              file_type: contentType,
-            }),
-          });
-          const sessionData = await sessionRes.json();
-          console.log("Upload session response:", JSON.stringify(sessionData));
-
-          if (!sessionRes.ok || !sessionData?.id) {
-            // Fallback: try submitting without handle (text-only header or skip)
-            console.error("Failed to create upload session:", JSON.stringify(sessionData));
-            return new Response(JSON.stringify({ error: "Media upload session failed", details: sessionData }), {
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-
-          const uploadSessionId = sessionData.id;
-
-          // Step 2: Upload the media bytes
-          const uploadUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/media-upload-sessions/${uploadSessionId}?waba_id=${creds.wabaId}`;
-          const uploadRes = await fetch(uploadUrl, {
-            method: "POST",
-            headers: {
-              Authorization: exotelAuth,
-              "Content-Type": contentType,
-              file_offset: "0",
-            },
-            body: mediaBuffer,
-          });
-          const uploadData = await uploadRes.json();
-          console.log("Media upload response:", JSON.stringify(uploadData));
-
-          if (!uploadRes.ok || !uploadData?.h) {
-            return new Response(JSON.stringify({ error: "Media upload failed", details: uploadData }), {
-              status: 200,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-
-          // Replace the URL with the actual media handle
-          processedComponents[i] = {
-            ...comp,
-            example: { header_handle: [uploadData.h] },
-          };
-          console.log("Got media handle:", uploadData.h);
         }
       }
 
