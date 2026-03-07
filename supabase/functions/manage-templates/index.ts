@@ -143,8 +143,14 @@ serve(async (req) => {
         });
       }
 
-      const exotelTemplates = exotelData?.data || exotelData?.templates || exotelData || [];
+      // Exotel response: { response: { whatsapp: { templates: [{ data: { name, status, id, ... } }] } } }
+      const rawTemplates = exotelData?.response?.whatsapp?.templates || [];
+      const exotelTemplates = rawTemplates
+        .filter((t: any) => t.data)
+        .map((t: any) => t.data);
+
       let updatedCount = 0;
+      let importedCount = 0;
 
       // Scope DB query to org
       const { data: dbTemplates } = await supabase
@@ -152,13 +158,15 @@ serve(async (req) => {
         .select("id, name, exotel_template_id, status")
         .eq("org_id", org_id);
 
+      const dbNames = new Set((dbTemplates || []).map((t: any) => t.name?.toLowerCase()));
+      const dbExotelIds = new Set((dbTemplates || []).filter((t: any) => t.exotel_template_id).map((t: any) => t.exotel_template_id));
+
+      // Update existing DB templates with Exotel status
       for (const dbTpl of (dbTemplates || [])) {
-        const match = Array.isArray(exotelTemplates)
-          ? exotelTemplates.find((et: any) =>
-              (dbTpl.exotel_template_id && et.id === dbTpl.exotel_template_id) ||
-              et.name === dbTpl.name
-            )
-          : null;
+        const match = exotelTemplates.find((et: any) =>
+          (dbTpl.exotel_template_id && et.id === dbTpl.exotel_template_id) ||
+          et.name?.toLowerCase() === dbTpl.name?.toLowerCase()
+        );
 
         if (match) {
           const newStatus = (match.status || "").toLowerCase();
@@ -172,7 +180,34 @@ serve(async (req) => {
         }
       }
 
-      return new Response(JSON.stringify({ success: true, synced: updatedCount, exotel_count: Array.isArray(exotelTemplates) ? exotelTemplates.length : 0 }), {
+      // Import templates from Exotel that don't exist in DB
+      for (const et of exotelTemplates) {
+        if (!et.name) continue;
+        const alreadyExists = dbNames.has(et.name.toLowerCase()) || dbExotelIds.has(et.id);
+        if (alreadyExists) continue;
+
+        // Build content from components
+        const bodyComp = (et.components || []).find((c: any) => c.type === "BODY");
+        const headerComp = (et.components || []).find((c: any) => c.type === "HEADER");
+        let contentText = bodyComp?.text || et.name;
+        if (headerComp?.format === "IMAGE") contentText = "[Image Header]\n" + contentText;
+        else if (headerComp?.format === "VIDEO") contentText = "[Video Header]\n" + contentText;
+        else if (headerComp?.format === "TEXT" && headerComp?.text) contentText = headerComp.text + "\n\n" + contentText;
+
+        await supabase.from("templates").insert({
+          user_id: user.id,
+          org_id,
+          name: et.name,
+          content: contentText,
+          category: (et.category || "MARKETING").toLowerCase(),
+          language: et.language || "en",
+          status: (et.status || "pending").toLowerCase(),
+          exotel_template_id: et.id || null,
+        });
+        importedCount++;
+      }
+
+      return new Response(JSON.stringify({ success: true, synced: updatedCount, imported: importedCount, exotel_count: exotelTemplates.length }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
