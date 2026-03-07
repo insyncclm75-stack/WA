@@ -7,8 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, MessageCircle, CreditCard, Loader2 } from "lucide-react";
+import { Building2, MessageCircle, CreditCard, Loader2, Bot } from "lucide-react";
 
 export default function OrgSettings() {
   const { currentOrg, refreshOrgs } = useOrg();
@@ -31,6 +33,14 @@ export default function OrgSettings() {
   });
   const [credsLoading, setCredsLoading] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
+
+  // AI Config
+  const [aiConfig, setAiConfig] = useState({
+    system_prompt: "You are a helpful customer support agent. Be concise and friendly.",
+    knowledge_base: "",
+    enabled: true,
+  });
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     if (!currentOrg) return;
@@ -57,6 +67,22 @@ export default function OrgSettings() {
           setIsConfigured(c.is_configured);
         }
       });
+
+    // Fetch AI config
+    supabase
+      .from("ai_config")
+      .select("system_prompt, knowledge_base, enabled")
+      .eq("org_id", currentOrg.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setAiConfig({
+          system_prompt: data.system_prompt ?? "",
+          knowledge_base: data.knowledge_base ?? "",
+          enabled: data.enabled ?? true,
+        });
+      });
+
     return () => { cancelled = true; };
   }, [currentOrg]);
 
@@ -75,6 +101,27 @@ export default function OrgSettings() {
       toast({ variant: "destructive", title: "Error", description: err.message });
     }
     setProfileLoading(false);
+  };
+
+  const saveAiConfig = async () => {
+    if (!currentOrg) return;
+    setAiLoading(true);
+    try {
+      const { error } = await supabase
+        .from("ai_config")
+        .upsert({
+          org_id: currentOrg.id,
+          system_prompt: aiConfig.system_prompt,
+          knowledge_base: aiConfig.knowledge_base,
+          enabled: aiConfig.enabled,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "org_id" });
+      if (error) throw error;
+      toast({ title: "AI configuration saved" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+    setAiLoading(false);
   };
 
   const saveCreds = async () => {
@@ -108,6 +155,9 @@ export default function OrgSettings() {
           </TabsTrigger>
           <TabsTrigger value="whatsapp" className="flex items-center gap-2">
             <MessageCircle className="h-4 w-4" /> WhatsApp Integration
+          </TabsTrigger>
+          <TabsTrigger value="ai" className="flex items-center gap-2">
+            <Bot className="h-4 w-4" /> AI Auto-Reply
           </TabsTrigger>
           <TabsTrigger value="billing" className="flex items-center gap-2">
             <CreditCard className="h-4 w-4" /> Billing
@@ -184,6 +234,65 @@ export default function OrgSettings() {
                 <Button onClick={saveCreds} disabled={credsLoading}>
                   {credsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save Credentials
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ai">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Auto-Reply</CardTitle>
+              <CardDescription>
+                Configure AI-powered automatic responses to incoming WhatsApp messages.
+                Replies within the 24-hour window are free.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between rounded-lg border border-border p-4">
+                <div>
+                  <p className="text-sm font-medium">Enable AI Auto-Reply</p>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, AI will automatically respond to incoming messages
+                  </p>
+                </div>
+                <Switch
+                  checked={aiConfig.enabled}
+                  onCheckedChange={(v) => setAiConfig({ ...aiConfig, enabled: v })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>System Prompt</Label>
+                <Textarea
+                  value={aiConfig.system_prompt}
+                  onChange={(e) => setAiConfig({ ...aiConfig, system_prompt: e.target.value })}
+                  placeholder="You are a helpful customer support agent for [Your Business]..."
+                  rows={4}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Tell the AI who it is, how to behave, and what tone to use
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Knowledge Base</Label>
+                <Textarea
+                  value={aiConfig.knowledge_base}
+                  onChange={(e) => setAiConfig({ ...aiConfig, knowledge_base: e.target.value })}
+                  placeholder="Paste your FAQs, product details, pricing, policies, business hours, etc..."
+                  rows={8}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The AI will use this information to answer customer questions accurately
+                </p>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button onClick={saveAiConfig} disabled={aiLoading}>
+                  {aiLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save AI Configuration
                 </Button>
               </div>
             </CardContent>

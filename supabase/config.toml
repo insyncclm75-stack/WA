@@ -26,3 +26,12 @@ verify_jwt = false
 
 [functions.send-campaign]
 verify_jwt = false
+
+[functions.whatsapp-webhook]
+verify_jwt = false
+
+[functions.ai-reply]
+verify_jwt = false
+
+[functions.send-reply]
+verify_jwt = false

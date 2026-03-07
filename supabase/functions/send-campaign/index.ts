@@ -78,7 +78,7 @@ serve(async (req) => {
     // Get assigned contacts
     const { data: assignments } = await supabase
       .from("campaign_contacts")
-      .select("contact_id, contacts(id, phone_number, name)")
+      .select("contact_id, contacts(id, phone_number, name, custom_fields)")
       .eq("campaign_id", campaign_id);
 
     const contacts = (assignments ?? [])
@@ -125,9 +125,25 @@ serve(async (req) => {
     let failCount = 0;
 
     for (const contact of contacts) {
-      // Personalize message
-      const message = (campaign.template_message || "")
-        .replace(/\{\{name\}\}/g, contact.name || "Customer");
+      // Personalize message using variable_mapping or legacy {{name}}
+      let message = campaign.template_message || "";
+      const mapping = campaign.variable_mapping as Record<string, string> | null;
+      if (mapping) {
+        for (const [varNum, field] of Object.entries(mapping)) {
+          let value = "";
+          if (field === "name") value = contact.name || "Customer";
+          else if (field === "phone_number") value = contact.phone_number || "";
+          else if (field.startsWith("custom_fields.")) {
+            const key = field.replace("custom_fields.", "");
+            value = (contact.custom_fields as Record<string, string>)?.[key] || "";
+          } else {
+            value = (contact as any)[field] || "";
+          }
+          message = message.replaceAll(`{{${varNum}}}`, value);
+        }
+      } else {
+        message = message.replace(/\{\{name\}\}/g, contact.name || "Customer");
+      }
 
       // Create message record with org_id
       const { data: msgRecord } = await supabase
