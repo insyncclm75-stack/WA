@@ -225,7 +225,7 @@ export default function OnboardingWizard() {
       }
 
       // Extract the onboarding URL from Exotel's response
-      const onboardingUrl = data?.data?.response?.whatsapp?.isv?.data?.url || data?.data?.url;
+      const onboardingUrl = data?.data?.response?.whatsapp?.isv?.data?.onboarding_url || data?.data?.onboarding_url || data?.data?.url;
       if (onboardingUrl) {
         const popup = window.open(onboardingUrl, "whatsapp_onboarding", "width=800,height=700,scrollbars=yes");
 

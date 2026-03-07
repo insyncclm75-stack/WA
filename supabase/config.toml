@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.manage-org]
 verify_jwt = false
+
+[functions.whatsapp-onboarding]
+verify_jwt = false
