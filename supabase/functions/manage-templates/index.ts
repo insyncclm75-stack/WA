@@ -56,7 +56,7 @@ serve(async (req) => {
       // Sanitize template name: lowercase letters, numbers, and underscores only
       const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
 
-      // If there's a media header with a URL, upload it to Meta via Exotel to get a handle
+      // For media headers, upload to Facebook Graph API to get a handle
       const processedComponents = [...components];
       for (let i = 0; i < processedComponents.length; i++) {
         const comp = processedComponents[i];
@@ -68,11 +68,24 @@ serve(async (req) => {
           const mediaUrl = comp.example.header_handle[0];
           console.log("Processing media header, URL:", mediaUrl);
 
+          const fbAccessToken = Deno.env.get("FB_ACCESS_TOKEN");
+          const fbAppId = Deno.env.get("FB_APP_ID");
+
+          if (!fbAccessToken || !fbAppId) {
+            // No Facebook credentials — try submitting with header_url as fallback
+            console.log("No FB credentials, trying header_url fallback");
+            processedComponents[i] = {
+              ...comp,
+              example: { header_url: [mediaUrl] },
+            };
+            continue;
+          }
+
           try {
-            // Fetch the media to get its size and type
+            // Fetch media to get size and type
             const mediaRes = await fetch(mediaUrl);
             if (!mediaRes.ok) {
-              return new Response(JSON.stringify({ error: "Failed to fetch media file from storage", details: `HTTP ${mediaRes.status}` }), {
+              return new Response(JSON.stringify({ error: "Failed to fetch media file from storage" }), {
                 status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               });
@@ -83,79 +96,53 @@ serve(async (req) => {
             const fileSize = mediaBuffer.length;
             console.log("Media size:", fileSize, "type:", contentType);
 
-            // Step 1: Create resumable upload session via Exotel
-            const sessionUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/uploads?waba_id=${creds.wabaId}`;
-            console.log("Creating upload session:", sessionUrl);
-            const sessionRes = await fetch(sessionUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: exotelAuth,
-              },
-              body: JSON.stringify({
-                file_length: String(fileSize),
-                file_type: contentType,
-              }),
-            });
+            // Step 1: Create upload session on Facebook Graph API
+            const sessionUrl = `https://graph.facebook.com/v21.0/${fbAppId}/uploads?file_length=${fileSize}&file_type=${encodeURIComponent(contentType)}&access_token=${fbAccessToken}`;
+            const sessionRes = await fetch(sessionUrl, { method: "POST" });
             const sessionText = await sessionRes.text();
-            console.log("Upload session response:", sessionRes.status, sessionText);
+            console.log("FB upload session response:", sessionRes.status, sessionText);
 
             let sessionData: any;
             try { sessionData = JSON.parse(sessionText); } catch { sessionData = { raw: sessionText }; }
 
-            const uploadSessionId = sessionData?.id || sessionData?.upload_id || sessionData?.data?.id;
-            if (!sessionRes.ok || !uploadSessionId) {
-              console.error("Upload session failed, returning error to client");
-              return new Response(JSON.stringify({
-                error: "Media upload to WhatsApp failed. You can still create text-only templates.",
-                details: sessionData,
-                hint: "Exotel may not support media upload via API. Try creating media templates through the Exotel dashboard.",
-              }), {
+            if (!sessionRes.ok || !sessionData?.id) {
+              return new Response(JSON.stringify({ error: "Facebook media upload session failed", details: sessionData }), {
                 status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               });
             }
 
-            // Step 2: Upload the media bytes
-            const uploadUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/uploads/${uploadSessionId}?waba_id=${creds.wabaId}`;
-            console.log("Uploading media bytes to:", uploadUrl);
-            const uploadRes = await fetch(uploadUrl, {
+            // Step 2: Upload media bytes
+            const uploadRes = await fetch(`https://graph.facebook.com/v21.0/${sessionData.id}`, {
               method: "POST",
               headers: {
-                Authorization: exotelAuth,
-                "Content-Type": contentType,
+                Authorization: `OAuth ${fbAccessToken}`,
                 file_offset: "0",
               },
               body: mediaBuffer,
             });
             const uploadText = await uploadRes.text();
-            console.log("Media upload response:", uploadRes.status, uploadText);
+            console.log("FB media upload response:", uploadRes.status, uploadText);
 
             let uploadData: any;
             try { uploadData = JSON.parse(uploadText); } catch { uploadData = { raw: uploadText }; }
 
-            const handle = uploadData?.h || uploadData?.handle || uploadData?.data?.h;
-            if (!uploadRes.ok || !handle) {
-              return new Response(JSON.stringify({
-                error: "Media upload to WhatsApp failed at upload step.",
-                details: uploadData,
-              }), {
+            if (!uploadRes.ok || !uploadData?.h) {
+              return new Response(JSON.stringify({ error: "Facebook media upload failed", details: uploadData }), {
                 status: 200,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
               });
             }
 
-            // Replace the URL with the actual media handle
             processedComponents[i] = {
               ...comp,
-              example: { header_handle: [handle] },
+              example: { header_handle: [uploadData.h] },
             };
-            console.log("Got media handle:", handle);
+            console.log("Got FB media handle:", uploadData.h);
           } catch (mediaErr) {
             console.error("Media upload error:", (mediaErr as Error).message);
             return new Response(JSON.stringify({
               error: "Media processing failed: " + (mediaErr as Error).message,
-              hint: "Try creating the template without a media header, or use the Exotel dashboard for media templates.",
             }), {
               status: 200,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
