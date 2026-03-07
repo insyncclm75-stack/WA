@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.whatsapp-onboarding]
 verify_jwt = false
+
+[functions.billing]
+verify_jwt = false
+
+[functions.send-campaign]
+verify_jwt = false

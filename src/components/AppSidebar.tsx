@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Building2,
   FileText,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ export function AppSidebar() {
       { to: "/reports", icon: BarChart3, label: "Reports" },
       { to: "/settings", icon: Settings, label: "Settings" },
     ] : []),
+    ...(isAdmin && hasOrg ? [{ to: "/billing", icon: Wallet, label: "Billing" }] : []),
     ...(isAdmin && hasOrg ? [{ to: "/users", icon: ShieldCheck, label: "User Management" }] : []),
     ...(isAdmin && hasOrg ? [{ to: "/org-settings", icon: Building2, label: "Org Settings" }] : []),
   ];

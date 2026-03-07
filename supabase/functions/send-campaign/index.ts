@@ -68,6 +68,12 @@ serve(async (req) => {
 
     // Extract org_id from campaign record
     const orgId = campaign.org_id;
+    const messageCategory = campaign.message_category || "marketing";
+
+    // Message rate based on category
+    const RATES: Record<string, number> = { marketing: 1.0, utility: 0.2, authentication: 0.2 };
+    const GST_RATE = 0.18;
+    const ratePerMsg = RATES[messageCategory] || 1.0;
 
     // Get assigned contacts
     const { data: assignments } = await supabase
@@ -83,6 +89,30 @@ serve(async (req) => {
       await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
       return new Response(JSON.stringify({ error: "No contacts assigned" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Balance check ──
+    const costPerMsg = ratePerMsg * (1 + GST_RATE); // rate + GST
+    const estimatedCost = Math.round(contacts.length * costPerMsg * 100) / 100;
+
+    const { data: wallet } = await supabase
+      .from("org_wallets")
+      .select("balance")
+      .eq("org_id", orgId)
+      .maybeSingle();
+
+    const currentBalance = wallet?.balance ?? 0;
+    if (currentBalance < estimatedCost) {
+      await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
+      return new Response(JSON.stringify({
+        error: "Insufficient balance",
+        required: estimatedCost,
+        current_balance: currentBalance,
+        shortfall: Math.round((estimatedCost - currentBalance) * 100) / 100,
+      }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -157,6 +187,32 @@ serve(async (req) => {
               sent_at: new Date().toISOString(),
             })
             .eq("id", msgRecord!.id);
+
+          // Debit wallet: message charge + GST
+          const gstAmount = Math.round(ratePerMsg * GST_RATE * 100) / 100;
+          const categoryMap: Record<string, string> = {
+            marketing: "marketing_message",
+            utility: "utility_message",
+            authentication: "auth_message",
+          };
+          await supabase.rpc("debit_wallet", {
+            _org_id: orgId,
+            _amount: ratePerMsg,
+            _category: categoryMap[messageCategory] || "marketing_message",
+            _description: `${messageCategory} message to ${contact.phone_number}`,
+            _reference_id: campaign_id,
+          });
+          // Debit GST separately
+          if (gstAmount > 0) {
+            await supabase.rpc("debit_wallet", {
+              _org_id: orgId,
+              _amount: gstAmount,
+              _category: "gst",
+              _description: `GST on ${messageCategory} message`,
+              _reference_id: campaign_id,
+            });
+          }
+
           successCount++;
         } else {
           await supabase

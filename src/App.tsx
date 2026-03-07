@@ -20,6 +20,7 @@ import Communications from "./pages/Communications";
 import Reports from "./pages/Reports";
 import Settings from "./pages/Settings";
 import Users from "./pages/Users";
+import Billing from "./pages/Billing";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
@@ -48,6 +49,7 @@ const App = () => (
               <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
+              <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />
               <Route path="/org-settings" element={<ProtectedRoute requireRole="admin"><OrgSettings /></ProtectedRoute>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
