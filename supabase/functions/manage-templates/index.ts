@@ -56,10 +56,95 @@ serve(async (req) => {
       // Sanitize template name: lowercase letters, numbers, and underscores only
       const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
 
+      // If there's a media header with a URL, upload it to Meta via Exotel to get a handle
+      const processedComponents = [...components];
+      for (let i = 0; i < processedComponents.length; i++) {
+        const comp = processedComponents[i];
+        if (
+          comp.type === "HEADER" &&
+          ["IMAGE", "VIDEO", "DOCUMENT"].includes(comp.format) &&
+          comp.example?.header_handle?.[0]
+        ) {
+          const mediaUrl = comp.example.header_handle[0];
+          console.log("Uploading media to Meta via Exotel:", mediaUrl);
+
+          // Step 1: Create upload session
+          const uploadSessionUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/media-upload-sessions?waba_id=${creds.wabaId}`;
+
+          // Fetch the media to get its size and type
+          const mediaRes = await fetch(mediaUrl);
+          if (!mediaRes.ok) {
+            return new Response(JSON.stringify({ error: "Failed to fetch media file", details: `HTTP ${mediaRes.status}` }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          const mediaBytes = await mediaRes.arrayBuffer();
+          const mediaBuffer = new Uint8Array(mediaBytes);
+          const contentType = mediaRes.headers.get("content-type") || "application/octet-stream";
+          const fileSize = mediaBuffer.length;
+
+          console.log("Media size:", fileSize, "type:", contentType);
+
+          const sessionRes = await fetch(uploadSessionUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: exotelAuth,
+            },
+            body: JSON.stringify({
+              file_length: fileSize,
+              file_type: contentType,
+            }),
+          });
+          const sessionData = await sessionRes.json();
+          console.log("Upload session response:", JSON.stringify(sessionData));
+
+          if (!sessionRes.ok || !sessionData?.id) {
+            // Fallback: try submitting without handle (text-only header or skip)
+            console.error("Failed to create upload session:", JSON.stringify(sessionData));
+            return new Response(JSON.stringify({ error: "Media upload session failed", details: sessionData }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          const uploadSessionId = sessionData.id;
+
+          // Step 2: Upload the media bytes
+          const uploadUrl = `https://${creds.subdomain}/v2/accounts/${creds.accountSid}/media-upload-sessions/${uploadSessionId}?waba_id=${creds.wabaId}`;
+          const uploadRes = await fetch(uploadUrl, {
+            method: "POST",
+            headers: {
+              Authorization: exotelAuth,
+              "Content-Type": contentType,
+              file_offset: "0",
+            },
+            body: mediaBuffer,
+          });
+          const uploadData = await uploadRes.json();
+          console.log("Media upload response:", JSON.stringify(uploadData));
+
+          if (!uploadRes.ok || !uploadData?.h) {
+            return new Response(JSON.stringify({ error: "Media upload failed", details: uploadData }), {
+              status: 200,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          // Replace the URL with the actual media handle
+          processedComponents[i] = {
+            ...comp,
+            example: { header_handle: [uploadData.h] },
+          };
+          console.log("Got media handle:", uploadData.h);
+        }
+      }
+
       // Call Exotel to submit template
       const exotelPayload = {
         whatsapp: {
-          templates: [{ template: { name: sanitizedName, category, language, components } }],
+          templates: [{ template: { name: sanitizedName, category, language, components: processedComponents } }],
         },
       };
       console.log("Exotel request URL:", `${baseUrl}?waba_id=${creds.wabaId}`);
