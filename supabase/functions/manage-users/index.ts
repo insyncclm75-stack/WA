@@ -146,7 +146,7 @@ serve(async (req) => {
           .eq("id", org_id)
           .single();
 
-        const siteUrl = Deno.env.get("SITE_URL") || "https://in-sync.co.in";
+        const siteUrl = Deno.env.get("SITE_URL") || "https://wa.in-sync.co.in";
         const orgName = org?.name || "your organization";
 
         await sendEmail({

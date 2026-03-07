@@ -30,7 +30,7 @@ serve(async (req) => {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      const siteUrl = Deno.env.get("SITE_URL") || "https://in-sync.co.in";
+      const siteUrl = Deno.env.get("SITE_URL") || "https://wa.in-sync.co.in";
 
       // generateLink creates the user (if new) AND returns a confirmation link
       // without sending Supabase's built-in email
@@ -82,7 +82,7 @@ serve(async (req) => {
       const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      const siteUrl = Deno.env.get("SITE_URL") || "https://in-sync.co.in";
+      const siteUrl = Deno.env.get("SITE_URL") || "https://wa.in-sync.co.in";
 
       const { data: linkData, error: linkError } =
         await supabase.auth.admin.generateLink({
