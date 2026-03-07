@@ -53,8 +53,8 @@ serve(async (req) => {
     if (action === "submit") {
       const { name, category, language, components } = body;
 
-      // Sanitize template name: Exotel only allows lowercase letters and underscores
-      const sanitizedName = name.toLowerCase().replace(/[^a-z_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+      // Sanitize template name: lowercase letters, numbers, and underscores only
+      const sanitizedName = name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
 
       // Call Exotel to submit template
       const exotelPayload = {
