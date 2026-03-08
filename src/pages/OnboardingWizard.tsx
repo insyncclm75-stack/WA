@@ -416,32 +416,51 @@ export default function OnboardingWizard() {
   );
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4 py-12">
+    <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12 overflow-hidden">
+      {/* Background pattern + gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-primary/5" />
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: "radial-gradient(circle, hsl(var(--primary)) 1px, transparent 1px)",
+          backgroundSize: "24px 24px",
+        }}
+      />
+      <div className="absolute left-1/2 top-0 h-[500px] w-[800px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/8 blur-3xl" />
+
       {/* Progress stepper */}
-      <div className="mb-8 flex items-center gap-2">
-        {STEPS.map((s, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <motion.div
-              className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-colors ${
-                i < step
-                  ? "bg-primary text-primary-foreground"
-                  : i === step
-                  ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                  : "bg-muted text-muted-foreground"
-              }`}
-              animate={{ scale: i === step ? 1.1 : 1 }}
-              transition={{ type: "spring", stiffness: 300 }}
-            >
-              {i < step ? <Check className="h-4 w-4" /> : i + 1}
-            </motion.div>
-            {i < STEPS.length - 1 && (
-              <div className={`h-0.5 w-8 transition-colors ${i < step ? "bg-primary" : "bg-muted"}`} />
-            )}
-          </div>
-        ))}
+      <div className="relative z-10 mb-8 flex items-center gap-2">
+        {STEPS.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <div key={i} className="flex items-center gap-2">
+              <div className="flex flex-col items-center gap-1.5">
+                <motion.div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold transition-colors ${
+                    i < step
+                      ? "bg-primary text-primary-foreground"
+                      : i === step
+                      ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                  animate={{ scale: i === step ? 1.1 : 1 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  {i < step ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                </motion.div>
+                <span className={`hidden text-[10px] font-medium sm:block ${i === step ? "text-primary" : i < step ? "text-foreground" : "text-muted-foreground"}`}>
+                  {s.title}
+                </span>
+              </div>
+              {i < STEPS.length - 1 && (
+                <div className={`h-0.5 w-6 transition-colors sm:w-8 ${i < step ? "bg-primary" : "bg-muted"} mb-5 sm:mb-5`} />
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      <Card className="w-full max-w-lg border-border shadow-xl overflow-hidden">
+      <Card className="relative z-10 w-full max-w-lg border-border shadow-xl overflow-hidden">
         <CardHeader className="text-center">
           <CardTitle className="text-xl">{STEPS[step].title}</CardTitle>
           <p className="text-sm text-muted-foreground">{STEPS[step].description}</p>
@@ -706,6 +725,21 @@ export default function OnboardingWizard() {
           </AnimatePresence>
         </CardContent>
       </Card>
+
+      {/* WhatsApp marketing stats ribbon */}
+      <div className="relative z-10 mt-10 grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { value: "98%", label: "Open Rate" },
+          { value: "45-60%", label: "Click-through Rate" },
+          { value: "2B+", label: "WhatsApp Users" },
+          { value: "10x", label: "vs Email ROI" },
+        ].map(({ value, label }) => (
+          <div key={label} className="rounded-lg border border-border/50 bg-card/60 backdrop-blur-sm px-4 py-3 text-center">
+            <p className="text-lg font-bold text-primary">{value}</p>
+            <p className="text-[11px] text-muted-foreground">{label}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
