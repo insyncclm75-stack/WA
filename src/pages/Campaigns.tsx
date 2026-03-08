@@ -87,6 +87,14 @@ function isValidPhone(phone: string): boolean {
   return /^\+?\d{10,15}$/.test(cleaned);
 }
 
+/** Normalize phone to include country code (default 91 for India). */
+function normalizePhone(phone: string): string {
+  let cleaned = phone.replace(/[\s\-\(\)\+]/g, "");
+  // 10-digit Indian number → prepend 91
+  if (/^\d{10}$/.test(cleaned)) cleaned = "91" + cleaned;
+  return cleaned;
+}
+
 type MediaType = "image" | "video" | "document" | null;
 
 function detectMediaType(content: string): MediaType {
@@ -353,18 +361,20 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
           continue;
         }
 
-        const cleaned = rawPhone.replace(/[\s\-\(\)]/g, "");
         if (!isValidPhone(rawPhone)) {
           errors.push({ row: rowNum, reason: `Invalid phone: ${rawPhone}` });
           continue;
         }
 
-        if (seenPhones.has(cleaned)) {
+        const normalized = normalizePhone(rawPhone);
+        if (seenPhones.has(normalized)) {
           errors.push({ row: rowNum, reason: `Duplicate: ${rawPhone}` });
           continue;
         }
 
-        seenPhones.add(cleaned);
+        seenPhones.add(normalized);
+        // Store normalized phone (with country code) back into the row
+        row[phoneCol] = normalized;
         validRows.push(row);
       }
 

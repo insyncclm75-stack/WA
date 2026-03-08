@@ -27,6 +27,13 @@ interface Contact {
   created_at: string;
 }
 
+/** Normalize phone to include country code (default 91 for India). */
+function normalizePhone(phone: string): string {
+  let cleaned = phone.replace(/[\s\-\(\)\+]/g, "");
+  if (/^\d{10}$/.test(cleaned)) cleaned = "91" + cleaned;
+  return cleaned;
+}
+
 export default function Contacts() {
   const { user } = useAuth();
   const { currentOrg } = useOrg();
@@ -96,7 +103,7 @@ export default function Contacts() {
       user_id: user.id,
       org_id: currentOrg.id,
       name: newContact.name || null,
-      phone_number: newContact.phone_number,
+      phone_number: normalizePhone(newContact.phone_number),
       email: newContact.email || null,
       source: "manual",
     });
@@ -141,10 +148,11 @@ export default function Contacts() {
             customFields[h] = cols[i];
           }
         });
+        const rawPhone = cols[phoneIdx] || "";
         return {
           user_id: user.id,
           org_id: currentOrg.id,
-          phone_number: cols[phoneIdx] || "",
+          phone_number: rawPhone ? normalizePhone(rawPhone) : "",
           name: nameIdx >= 0 ? cols[nameIdx] || null : null,
           email: emailIdx >= 0 ? cols[emailIdx] || null : null,
           source: "csv_upload",
@@ -241,7 +249,8 @@ export default function Contacts() {
                 </div>
                 <div>
                   <Label>Phone Number *</Label>
-                  <Input value={newContact.phone_number} onChange={(e) => setNewContact({ ...newContact, phone_number: e.target.value })} placeholder="+91..." required />
+                  <Input value={newContact.phone_number} onChange={(e) => setNewContact({ ...newContact, phone_number: e.target.value })} placeholder="919876543210" required />
+                  <p className="text-xs text-muted-foreground mt-1">Include country code (e.g. 91 for India). 10-digit numbers auto-prefixed with 91.</p>
                 </div>
                 <div>
                   <Label>Email</Label>
