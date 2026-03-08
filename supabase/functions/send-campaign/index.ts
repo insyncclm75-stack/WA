@@ -34,6 +34,20 @@ serve(async (req) => {
       });
     }
 
+    // ── Fetch campaign ──
+    const { data: campaign } = await supabase
+      .from("campaigns")
+      .select("*")
+      .eq("id", campaign_id)
+      .single();
+
+    if (!campaign) {
+      return new Response(JSON.stringify({ error: "Campaign not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Auth: only check JWT for the initial call; chained calls use service role key ──
     if (!isChainedCall) {
       const authHeader = req.headers.get("Authorization");
@@ -51,27 +65,19 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
-      if (!isAdmin) {
+      // Check user is admin of the campaign's org
+      const { data: membership } = await supabase
+        .from("org_memberships")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("org_id", campaign.org_id)
+        .single();
+      if (!membership || membership.role !== "admin") {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    }
-
-    // ── Fetch campaign ──
-    const { data: campaign } = await supabase
-      .from("campaigns")
-      .select("*")
-      .eq("id", campaign_id)
-      .single();
-
-    if (!campaign) {
-      return new Response(JSON.stringify({ error: "Campaign not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
 
     // ── Atomic status check ──
