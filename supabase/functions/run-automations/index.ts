@@ -236,19 +236,50 @@ async function processStep(
       return;
     }
 
-    // Personalize message
-    let message = template.content || "";
+    // Strip content markers and personalize for DB record
+    let message = (template.content || "")
+      .replace(/^\[(Image|Video|Document) Header\]\n?/, "")
+      .trim();
     message = message.replace(/\{\{name\}\}/g, contact.name || "Customer");
     message = message.replace(
       /\{\{phone_number\}\}/g,
       contact.phone_number || ""
     );
 
-    // Send via Exotel
+    // Build WhatsApp template message (same format as send-campaign)
+    const sanitizedName = template.name.toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+    const templateLanguage = template.language || "en";
+
+    // Detect media type from raw template content
+    const rawContent = template.content || "";
+    let headerMediaType: string | null = null;
+    if (rawContent.startsWith("[Image Header]")) headerMediaType = "image";
+    else if (rawContent.startsWith("[Video Header]")) headerMediaType = "video";
+    else if (rawContent.startsWith("[Document Header]")) headerMediaType = "document";
+
+    // Build template components
+    const components: Record<string, unknown>[] = [];
+
+    // Extract {{N}} style variables and resolve them
+    const varMatches = rawContent.match(/\{\{(\d+)\}\}/g);
+    if (varMatches) {
+      const varNums = [...new Set(varMatches)].map((v) => v.replace(/\D/g, "")).sort((a, b) => parseInt(a) - parseInt(b));
+      const bodyParams = varNums.map((num) => {
+        // Simple mapping: {{1}} = name, {{2}} = phone
+        if (num === "1") return { type: "text", text: contact.name || "Customer" };
+        if (num === "2") return { type: "text", text: contact.phone_number || "" };
+        return { type: "text", text: "" };
+      });
+      components.push({ type: "body", parameters: bodyParams });
+    }
+
     const content: Record<string, unknown> = {
-      recipient_type: "individual",
-      type: "text",
-      text: { preview_url: false, body: message },
+      type: "template",
+      template: {
+        name: sanitizedName,
+        language: { code: templateLanguage, policy: "deterministic" },
+        ...(components.length > 0 ? { components } : {}),
+      },
     };
 
     const payload = {

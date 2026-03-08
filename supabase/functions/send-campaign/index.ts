@@ -98,15 +98,20 @@ serve(async (req) => {
     const currentBalance = wallet?.balance ?? 0;
     const batchCost = Math.round(BATCH_SIZE * costPerMsg * 100) / 100;
 
-    if (currentBalance < costPerMsg) {
-      await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
-      return new Response(JSON.stringify({
-        error: "Insufficient balance",
-        current_balance: currentBalance,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (currentBalance < batchCost) {
+      // Not enough for a full batch — check if we can send at least one
+      if (currentBalance < costPerMsg) {
+        await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
+        return new Response(JSON.stringify({
+          error: "Insufficient balance",
+          required: batchCost,
+          current_balance: currentBalance,
+          shortfall: Math.round((batchCost - currentBalance) * 100) / 100,
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // ── Fetch template for WhatsApp API ──
@@ -345,7 +350,7 @@ serve(async (req) => {
       const nextOffset = offset + BATCH_SIZE;
       console.log(`Batch done (sent=${batchSent}, failed=${batchFailed}). Chaining to offset ${nextOffset}`);
 
-      // Fire-and-forget: invoke self with service role key
+      // Chain to next batch — on failure, mark campaign as failed so it doesn't stay stuck
       fetch(`${supabaseUrl}/functions/v1/send-campaign`, {
         method: "POST",
         headers: {
@@ -353,7 +358,10 @@ serve(async (req) => {
           "Authorization": `Bearer ${supabaseServiceKey}`,
         },
         body: JSON.stringify({ campaign_id, offset: nextOffset }),
-      }).catch((err) => console.error("Self-chain failed:", err.message));
+      }).catch(async (err) => {
+        console.error("Self-chain failed:", err.message);
+        await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
+      });
     } else {
       // This was the last batch — finalize campaign
       console.log(`Final batch done (sent=${batchSent}, failed=${batchFailed}). Finalizing campaign.`);
