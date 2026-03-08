@@ -72,7 +72,47 @@ serve(async (req) => {
       });
     }
 
-    // Verify org membership
+    // Check if platform admin
+    const { data: isPlatformAdmin } = await supabase.rpc("has_role", {
+      _user_id: user.id,
+      _role: "platform_admin",
+    });
+
+    // ── MANUAL CREDIT (platform_admin only) ──
+    if (action === "manual_credit") {
+      if (!isPlatformAdmin) {
+        return new Response(JSON.stringify({ error: "Platform admin access required" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { amount, description } = body;
+      if (!amount || amount <= 0) {
+        return new Response(JSON.stringify({ error: "Amount must be greater than 0" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: newBalance } = await supabase.rpc("credit_wallet", {
+        _org_id: org_id,
+        _amount: amount,
+        _category: "adjustment",
+        _description: description || `Manual credit by platform admin`,
+        _reference_id: `admin_${user.id}_${Date.now()}`,
+      });
+
+      return new Response(JSON.stringify({
+        success: true,
+        new_balance: newBalance,
+        amount_credited: amount,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Verify org membership (platform admins can bypass)
     const { data: membership } = await supabase
       .from("org_memberships")
       .select("role")
@@ -80,7 +120,7 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (!membership) {
+    if (!membership && !isPlatformAdmin) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,9 +1,14 @@
 import { useState, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, ArrowUpDown } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Search, ArrowUpDown, IndianRupee, Loader2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import type { OrgRow } from "@/hooks/usePlatformDashboard";
 
@@ -14,9 +19,46 @@ interface Props {
 type SortKey = "name" | "members" | "contacts" | "campaigns" | "messages" | "deliveryRate" | "lastActivity";
 
 export function PlatformOrgsTable({ organizations }: Props) {
+  const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
+
+  // Credit dialog state
+  const [creditOrg, setCreditOrg] = useState<OrgRow | null>(null);
+  const [creditAmount, setCreditAmount] = useState("100");
+  const [creditDescription, setCreditDescription] = useState("");
+  const [crediting, setCrediting] = useState(false);
+
+  const handleCredit = async () => {
+    if (!creditOrg) return;
+    const amount = parseFloat(creditAmount);
+    if (isNaN(amount) || amount <= 0) {
+      toast({ variant: "destructive", title: "Invalid amount" });
+      return;
+    }
+    setCrediting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("billing", {
+        body: {
+          action: "manual_credit",
+          org_id: creditOrg.id,
+          amount,
+          description: creditDescription || `Manual credit for ${creditOrg.name}`,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Credit added", description: `₹${amount} credited to ${creditOrg.name}. New balance: ₹${data.new_balance}` });
+      setCreditOrg(null);
+      setCreditAmount("100");
+      setCreditDescription("");
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+    setCrediting(false);
+  };
+
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {
       setSortAsc(!sortAsc);
@@ -59,6 +101,7 @@ export function PlatformOrgsTable({ organizations }: Props) {
   );
 
   return (
+    <>
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>All Organizations</CardTitle>
@@ -86,12 +129,13 @@ export function PlatformOrgsTable({ organizations }: Props) {
                 <SortHeader label="Delivery Rate" field="deliveryRate" />
                 <SortHeader label="Last Activity" field="lastActivity" />
                 <TableHead>Onboarding</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="py-8 text-center text-muted-foreground">
                     No organizations found
                   </TableCell>
                 </TableRow>
@@ -119,6 +163,16 @@ export function PlatformOrgsTable({ organizations }: Props) {
                         {org.onboarding_completed ? "Complete" : "Pending"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => setCreditOrg(org)}
+                      >
+                        <IndianRupee className="h-3.5 w-3.5" /> Credit
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ))
               )}
@@ -127,5 +181,56 @@ export function PlatformOrgsTable({ organizations }: Props) {
         </div>
       </CardContent>
     </Card>
+
+      {/* Credit Dialog */}
+      <Dialog open={!!creditOrg} onOpenChange={(open) => !open && setCreditOrg(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Credit</DialogTitle>
+            <DialogDescription>
+              Manually credit wallet for <span className="font-semibold">{creditOrg?.name}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Amount (Rs)</Label>
+              <Input
+                type="number"
+                min="1"
+                value={creditAmount}
+                onChange={(e) => setCreditAmount(e.target.value)}
+                placeholder="100"
+              />
+            </div>
+            <div className="flex gap-2">
+              {[100, 500, 1000, 5000].map((amt) => (
+                <Button
+                  key={amt}
+                  variant={creditAmount === String(amt) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setCreditAmount(String(amt))}
+                >
+                  Rs {amt.toLocaleString("en-IN")}
+                </Button>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <Label>Description (optional)</Label>
+              <Input
+                value={creditDescription}
+                onChange={(e) => setCreditDescription(e.target.value)}
+                placeholder="e.g. Payment received via bank transfer"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreditOrg(null)}>Cancel</Button>
+            <Button onClick={handleCredit} disabled={crediting} className="gap-2">
+              {crediting ? <><Loader2 className="h-4 w-4 animate-spin" /> Crediting...</> : <>Credit Rs {parseFloat(creditAmount) || 0}</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
