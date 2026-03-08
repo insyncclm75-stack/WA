@@ -18,6 +18,14 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // ── Advisory lock: prevent concurrent runs ──
+    const { data: gotLock } = await supabase.rpc("try_automation_lock");
+    if (!gotLock) {
+      return new Response(JSON.stringify({ message: "Another run-automations invocation is in progress" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Fetch all active automations
     const { data: automations } = await supabase
       .from("automations")
@@ -115,27 +123,23 @@ serve(async (req) => {
       const remaining = Math.max(0, automation.daily_limit - (sentToday ?? 0));
       if (remaining <= 0) continue;
 
-      const { data: pendingContacts } = await supabase
+      // Atomically claim pending contacts (prevents concurrent runs from double-processing)
+      const { data: claimedIds } = await supabase.rpc("claim_automation_contacts", {
+        _automation_id: automation.id,
+        _limit: remaining,
+      });
+
+      if (!claimedIds || claimedIds.length === 0) continue;
+
+      // Fetch the full records for claimed contacts
+      const { data: claimedContacts } = await supabase
         .from("automation_contacts")
         .select("*")
-        .eq("automation_id", automation.id)
-        .eq("status", "pending")
-        .order("created_at", { ascending: true })
-        .limit(remaining);
+        .in("id", claimedIds);
 
-      for (const ac of pendingContacts ?? []) {
+      for (const ac of claimedContacts ?? []) {
         const firstStep = steps.find((s: any) => s.step_order === 1);
         if (!firstStep) continue;
-
-        // Mark as in_progress
-        await supabase
-          .from("automation_contacts")
-          .update({
-            status: "in_progress",
-            step_entered_at: new Date().toISOString(),
-            current_step_order: 1,
-          })
-          .eq("id", ac.id);
 
         await processStep(supabase, automation, firstStep, ac, steps, maxStep, creds, exotelUrl, stats);
       }
@@ -356,7 +360,7 @@ async function processStep(
         .single();
 
       if (exotelResponse.ok && msgData?.status === "success") {
-        // Debit wallet
+        // Debit wallet atomically (base + GST in one call)
         const categoryMap: Record<string, string> = {
           marketing: "marketing_message",
           utility: "utility_message",
@@ -364,22 +368,14 @@ async function processStep(
         };
         const gstAmount = Math.round(ratePerMsg * GST_RATE * 100) / 100;
 
-        await supabase.rpc("debit_wallet", {
+        await supabase.rpc("debit_wallet_with_gst", {
           _org_id: orgId,
-          _amount: ratePerMsg,
+          _base_amount: ratePerMsg,
+          _gst_amount: gstAmount,
           _category: categoryMap[category] || "marketing_message",
           _description: `Automation: ${automation.name} → ${contact.phone_number}`,
           _reference_id: automation.id,
         });
-        if (gstAmount > 0) {
-          await supabase.rpc("debit_wallet", {
-            _org_id: orgId,
-            _amount: gstAmount,
-            _category: "gst",
-            _description: `GST on automation message`,
-            _reference_id: automation.id,
-          });
-        }
 
         stats.sent++;
 

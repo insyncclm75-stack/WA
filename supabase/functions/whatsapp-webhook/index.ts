@@ -43,6 +43,7 @@ serve(async (req) => {
         // ── Extract fields ──
         const fromNumber = msg.from; // customer phone
         const toNumber = msg.to;     // business phone / sender number
+        const exotelMsgId = msg.id || msg.sid || msg.data?.sid || null;
         const contentType = msg.content?.type || "text";
         const textBody =
           msg.content?.text?.body ||
@@ -58,6 +59,18 @@ serve(async (req) => {
           null;
 
         if (!fromNumber) continue;
+
+        // ── Dedup: skip if we've already processed this exotel message ──
+        if (exotelMsgId) {
+          const { count } = await supabase
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("exotel_message_id", exotelMsgId);
+          if ((count ?? 0) > 0) {
+            console.log(`Skipping duplicate webhook message: ${exotelMsgId}`);
+            continue;
+          }
+        }
 
         // ── Resolve org by sender number ──
         let orgId: string | null = null;
@@ -231,6 +244,7 @@ serve(async (req) => {
           media_url: mediaUrl,
           status: "delivered",
           sent_at: now,
+          exotel_message_id: exotelMsgId,
         });
 
         // ── Check AI and trigger reply ──

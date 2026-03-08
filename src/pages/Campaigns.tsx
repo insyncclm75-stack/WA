@@ -118,6 +118,7 @@ function CampaignList({ onNew }: { onNew: () => void }) {
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [launchingId, setLaunchingId] = useState<string | null>(null);
 
   const fetchCampaigns = useCallback(async () => {
     if (!currentOrg) return;
@@ -136,27 +137,38 @@ function CampaignList({ onNew }: { onNew: () => void }) {
   }, [fetchCampaigns]);
 
   const launchCampaign = async (id: string) => {
-    const { count } = await supabase
-      .from("campaign_contacts")
-      .select("id", { count: "exact", head: true })
-      .eq("campaign_id", id);
+    if (launchingId) return; // Prevent double-launch
+    setLaunchingId(id);
 
-    if (!count || count === 0) {
-      toast({ variant: "destructive", title: "No contacts", description: "Assign contacts to this campaign first." });
-      return;
-    }
+    try {
+      const { count } = await supabase
+        .from("campaign_contacts")
+        .select("id", { count: "exact", head: true })
+        .eq("campaign_id", id);
 
-    const { error } = await supabase
-      .from("campaigns")
-      .update({ status: "running" })
-      .eq("id", id);
+      if (!count || count === 0) {
+        toast({ variant: "destructive", title: "No contacts", description: "Assign contacts to this campaign first." });
+        return;
+      }
 
-    if (error) {
-      toast({ variant: "destructive", title: "Error", description: error.message });
-    } else {
+      // Atomic status transition: draft→running (prevents double-launch at DB level)
+      const { data: transitioned } = await supabase.rpc("transition_campaign_status", {
+        _campaign_id: id,
+        _from_status: "draft",
+        _to_status: "running",
+      });
+
+      if (!transitioned) {
+        toast({ variant: "destructive", title: "Already launched", description: "This campaign is no longer in draft status." });
+        fetchCampaigns();
+        return;
+      }
+
       toast({ title: "Campaign launched!" });
-      const { data: sendResult } = await supabase.functions.invoke("send-campaign", { body: { campaign_id: id } });
-      if (sendResult?.error === "Insufficient balance") {
+      const { data: sendResult, error: invokeErr } = await supabase.functions.invoke("send-campaign", { body: { campaign_id: id } });
+      if (invokeErr) {
+        toast({ variant: "destructive", title: "Error", description: invokeErr.message || "Failed to start send" });
+      } else if (sendResult?.error === "Insufficient balance") {
         toast({
           variant: "destructive",
           title: "Insufficient Balance",
@@ -164,6 +176,8 @@ function CampaignList({ onNew }: { onNew: () => void }) {
         });
       }
       fetchCampaigns();
+    } finally {
+      setLaunchingId(null);
     }
   };
 
@@ -209,8 +223,9 @@ function CampaignList({ onNew }: { onNew: () => void }) {
                     <Eye className="h-3.5 w-3.5" /> View
                   </Button>
                   {c.status === "draft" && (
-                    <Button size="sm" className="gap-1" onClick={() => launchCampaign(c.id)}>
-                      <Play className="h-3.5 w-3.5" /> Launch
+                    <Button size="sm" className="gap-1" onClick={() => launchCampaign(c.id)} disabled={launchingId === c.id}>
+                      {launchingId === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                      {launchingId === c.id ? "Launching..." : "Launch"}
                     </Button>
                   )}
                 </div>
@@ -533,8 +548,12 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
         throw new Error("No contacts could be uploaded. Check your CSV data.");
       }
 
-      // 5. Update status to running and send
-      await supabase.from("campaigns").update({ status: "running" }).eq("id", campaign.id);
+      // 5. Atomically transition to running and send
+      await supabase.rpc("transition_campaign_status", {
+        _campaign_id: campaign.id,
+        _from_status: "draft",
+        _to_status: "running",
+      });
       const { data: sendResult, error: invokeErr } = await supabase.functions.invoke("send-campaign", {
         body: { campaign_id: campaign.id },
       });

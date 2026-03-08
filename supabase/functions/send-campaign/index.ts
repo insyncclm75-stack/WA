@@ -73,8 +73,22 @@ serve(async (req) => {
       });
     }
 
-    // If campaign is no longer running (e.g. manually stopped or already completed), stop chaining
-    if (campaign.status !== "running") {
+    // ── Atomic status check ──
+    // For the initial call, atomically transition draft→running (prevents double-launch).
+    // For chained calls, just verify it's still running.
+    if (!isChainedCall) {
+      const { data: transitioned } = await supabase.rpc("transition_campaign_status", {
+        _campaign_id: campaign_id,
+        _from_status: "running",
+        _to_status: "running",
+      });
+      if (!transitioned) {
+        return new Response(JSON.stringify({ error: "Campaign is not running", status: campaign.status }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    } else if (campaign.status !== "running") {
       return new Response(JSON.stringify({ error: "Campaign is not running", status: campaign.status }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -101,7 +115,7 @@ serve(async (req) => {
     if (currentBalance < batchCost) {
       // Not enough for a full batch — check if we can send at least one
       if (currentBalance < costPerMsg) {
-        await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
+        await supabase.rpc("transition_campaign_status", { _campaign_id: campaign_id, _from_status: "running", _to_status: "failed" });
         return new Response(JSON.stringify({
           error: "Insufficient balance",
           required: batchCost,
@@ -132,7 +146,7 @@ serve(async (req) => {
     }
 
     if (!templateName) {
-      await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
+      await supabase.rpc("transition_campaign_status", { _campaign_id: campaign_id, _from_status: "running", _to_status: "failed" });
       return new Response(JSON.stringify({ error: "Template not found for campaign" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -179,7 +193,7 @@ serve(async (req) => {
         .eq("status", "failed");
 
       const finalStatus = (sentCount ?? 0) === 0 ? "failed" : "completed";
-      await supabase.from("campaigns").update({ status: finalStatus }).eq("id", campaign_id);
+      await supabase.rpc("transition_campaign_status", { _campaign_id: campaign_id, _from_status: "running", _to_status: finalStatus });
 
       return new Response(JSON.stringify({
         success: true,
@@ -240,6 +254,36 @@ serve(async (req) => {
       }
 
       try {
+        // ── Pre-debit wallet (atomic base + GST) before sending ──
+        const gstAmount = Math.round(ratePerMsg * GST_RATE * 100) / 100;
+        const categoryMap: Record<string, string> = {
+          marketing: "marketing_message",
+          utility: "utility_message",
+          authentication: "auth_message",
+        };
+
+        const { data: debitResult } = await supabase.rpc("debit_wallet_with_gst", {
+          _org_id: orgId,
+          _base_amount: ratePerMsg,
+          _gst_amount: gstAmount,
+          _category: categoryMap[messageCategory] || "marketing_message",
+          _description: `${messageCategory} message to ${contact.phone_number}`,
+          _reference_id: campaign_id,
+        });
+
+        if (debitResult === -1) {
+          // Insufficient balance — mark message failed, stop campaign
+          await supabase.from("messages").update({ status: "failed", error_message: "Insufficient balance" }).eq("id", msgRecord.id);
+          batchFailed++;
+          // Finalize campaign as we can't send more
+          const { count: totalSent } = await supabase.from("messages").select("id", { count: "exact", head: true }).eq("campaign_id", campaign_id).eq("status", "sent");
+          const finalStatus = (totalSent ?? 0) === 0 ? "failed" : "completed";
+          await supabase.rpc("transition_campaign_status", { _campaign_id: campaign_id, _from_status: "running", _to_status: finalStatus });
+          return new Response(JSON.stringify({ success: true, batch_sent: batchSent, batch_failed: batchFailed, stopped: "insufficient_balance" }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
         // Build template components for WhatsApp API
         const components: Record<string, unknown>[] = [];
 
@@ -295,30 +339,6 @@ serve(async (req) => {
             })
             .eq("id", msgRecord.id);
 
-          // Debit wallet
-          const gstAmount = Math.round(ratePerMsg * GST_RATE * 100) / 100;
-          const categoryMap: Record<string, string> = {
-            marketing: "marketing_message",
-            utility: "utility_message",
-            authentication: "auth_message",
-          };
-          await supabase.rpc("debit_wallet", {
-            _org_id: orgId,
-            _amount: ratePerMsg,
-            _category: categoryMap[messageCategory] || "marketing_message",
-            _description: `${messageCategory} message to ${contact.phone_number}`,
-            _reference_id: campaign_id,
-          });
-          if (gstAmount > 0) {
-            await supabase.rpc("debit_wallet", {
-              _org_id: orgId,
-              _amount: gstAmount,
-              _category: "gst",
-              _description: `GST on ${messageCategory} message`,
-              _reference_id: campaign_id,
-            });
-          }
-
           batchSent++;
         } else {
           await supabase
@@ -328,9 +348,25 @@ serve(async (req) => {
               error_message: JSON.stringify(result).slice(0, 500),
             })
             .eq("id", msgRecord.id);
+          // Refund pre-debited amount on send failure
+          await supabase.rpc("credit_wallet", {
+            _org_id: orgId,
+            _amount: ratePerMsg + Math.round(ratePerMsg * GST_RATE * 100) / 100,
+            _category: "refund",
+            _description: `Refund: failed send to ${contact.phone_number}`,
+            _reference_id: campaign_id,
+          });
           batchFailed++;
         }
       } catch (err) {
+        // Refund pre-debited amount on exception
+        await supabase.rpc("credit_wallet", {
+          _org_id: orgId,
+          _amount: ratePerMsg + Math.round(ratePerMsg * GST_RATE * 100) / 100,
+          _category: "refund",
+          _description: `Refund: error sending to ${contact.phone_number}`,
+          _reference_id: campaign_id,
+        });
         await supabase
           .from("messages")
           .update({
@@ -357,7 +393,7 @@ serve(async (req) => {
         body: JSON.stringify({ campaign_id, offset: nextOffset }),
       }).catch(async (err) => {
         console.error("Self-chain failed:", err.message);
-        await supabase.from("campaigns").update({ status: "failed" }).eq("id", campaign_id);
+        await supabase.rpc("transition_campaign_status", { _campaign_id: campaign_id, _from_status: "running", _to_status: "failed" });
       });
     } else {
       // This was the last batch — finalize campaign
@@ -370,7 +406,7 @@ serve(async (req) => {
         .eq("status", "sent");
 
       const finalStatus = (totalSent ?? 0) === 0 ? "failed" : "completed";
-      await supabase.from("campaigns").update({ status: finalStatus }).eq("id", campaign_id);
+      await supabase.rpc("transition_campaign_status", { _campaign_id: campaign_id, _from_status: "running", _to_status: finalStatus });
     }
 
     return new Response(
