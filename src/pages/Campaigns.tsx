@@ -8,14 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Play, Eye, ArrowLeft, ArrowRight, Upload, Download,
-  FileText, AlertCircle, Loader2, X, Rocket,
+  FileText, AlertCircle, Loader2, X, Rocket, CheckCircle2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -34,7 +32,19 @@ interface CsvRow {
   [key: string]: string;
 }
 
+interface CsvError {
+  row: number;
+  reason: string;
+}
+
 // ─── Helpers ───
+
+const MAX_CONTACTS = 5000;
+const UPSERT_BATCH = 500;
+
+function stripContentMarkers(content: string): string {
+  return content.replace(/^\[(Image|Video|Document) Header\]\n?/, "").trim();
+}
 
 function extractTemplateVars(text: string): string[] {
   const matches = text.match(/\{\{(\d+)\}\}/g);
@@ -45,7 +55,7 @@ function extractTemplateVars(text: string): string[] {
 }
 
 function resolveMessage(text: string, mapping: Record<string, string>, row: CsvRow): string {
-  let resolved = text;
+  let resolved = stripContentMarkers(text);
   for (const [varNum, col] of Object.entries(mapping)) {
     resolved = resolved.replaceAll(`{{${varNum}}}`, row[col] || `{{${varNum}}}`);
   }
@@ -65,6 +75,16 @@ function parseCsv(text: string): { headers: string[]; rows: CsvRow[] } {
     return row;
   });
   return { headers, rows };
+}
+
+function isPhoneColumn(h: string): boolean {
+  const l = h.toLowerCase();
+  return l.includes("phone") || l.includes("mobile") || l === "number" || l === "whatsapp";
+}
+
+function isValidPhone(phone: string): boolean {
+  const cleaned = phone.replace(/[\s\-\(\)]/g, "");
+  return /^\+?\d{10,15}$/.test(cleaned);
 }
 
 type MediaType = "image" | "video" | "document" | null;
@@ -92,11 +112,7 @@ const statusColor: Record<string, string> = {
 
 // ─── Campaign List ───
 
-function CampaignList({
-  onNew,
-}: {
-  onNew: () => void;
-}) {
+function CampaignList({ onNew }: { onNew: () => void }) {
   const { currentOrg } = useOrg();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -184,7 +200,9 @@ function CampaignList({
               </CardHeader>
               <CardContent>
                 {c.template_message && (
-                  <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">{c.template_message}</p>
+                  <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
+                    {stripContentMarkers(c.template_message)}
+                  </p>
                 )}
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate(`/campaigns/${c.id}`)}>
@@ -205,7 +223,7 @@ function CampaignList({
   );
 }
 
-// ─── Campaign Creator (Multi-Step) ───
+// ─── Campaign Creator (Single Page) ───
 
 function CampaignCreator({ onBack }: { onBack: () => void }) {
   const { user } = useAuth();
@@ -215,27 +233,29 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
 
-  const [step, setStep] = useState(1);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [campaignName, setCampaignName] = useState("");
 
-  // Step 2: CSV upload
+  // CSV
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvRows, setCsvRows] = useState<CsvRow[]>([]);
   const [csvFileName, setCsvFileName] = useState("");
+  const [csvErrors, setCsvErrors] = useState<CsvError[]>([]);
+  const [csvTotalParsed, setCsvTotalParsed] = useState(0);
+  const [csvWasCapped, setCsvWasCapped] = useState(false);
 
-  // Step 3: Variable mapping
+  // Variable mapping
   const [variableMapping, setVariableMapping] = useState<Record<string, string>>({});
 
-  // Step 4: Media
+  // Media
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
 
-  // Step 5: Launching
+  // Launching
   const [launching, setLaunching] = useState(false);
 
-  // Detect template header type from content
+  // Derived
   const templateVars = useMemo(
     () => (selectedTemplate ? extractTemplateVars(selectedTemplate.content || "") : []),
     [selectedTemplate]
@@ -246,6 +266,11 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
     [selectedTemplate]
   );
   const needsMedia = mediaType !== null;
+
+  const displayContent = useMemo(
+    () => (selectedTemplate ? stripContentMarkers(selectedTemplate.content || "") : ""),
+    [selectedTemplate]
+  );
 
   // Fetch approved templates
   useEffect(() => {
@@ -260,10 +285,7 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
 
   // Phone column detection
   const phoneColumn = useMemo(() => {
-    return csvHeaders.find((h) => {
-      const l = h.toLowerCase();
-      return l.includes("phone") || l.includes("mobile") || l === "number" || l === "whatsapp";
-    }) || csvHeaders[0] || "";
+    return csvHeaders.find((h) => isPhoneColumn(h)) || csvHeaders[0] || "";
   }, [csvHeaders]);
 
   // Auto-map variables
@@ -272,12 +294,10 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
     const auto: Record<string, string> = {};
     for (const v of templateVars) {
       const num = v.replace(/\D/g, "");
-      // Try to find a matching column by common names
       const nameCol = csvHeaders.find((h) => h.toLowerCase() === "name");
       if (num === "1" && nameCol) {
         auto[num] = nameCol;
       } else {
-        // Map to columns in order (skip phone column)
         const nonPhoneCols = csvHeaders.filter((h) => h !== phoneColumn);
         const idx = parseInt(num) - 1;
         if (idx < nonPhoneCols.length) {
@@ -298,20 +318,67 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
         toast({ variant: "destructive", title: "Invalid CSV", description: "No columns found." });
         return;
       }
-      const hasPhone = headers.some((h) => {
-        const l = h.toLowerCase();
-        return l.includes("phone") || l.includes("mobile") || l === "number" || l === "whatsapp";
-      });
-      if (!hasPhone) {
+      const phoneCol = headers.find((h) => isPhoneColumn(h));
+      if (!phoneCol) {
         toast({ variant: "destructive", title: "Missing phone column", description: "CSV must have a phone/mobile column." });
         return;
       }
+
+      // Validate rows
+      const errors: CsvError[] = [];
+      const validRows: CsvRow[] = [];
+      const seenPhones = new Set<string>();
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rawPhone = row[phoneCol] || "";
+        const rowNum = i + 2; // +2 for header row + 0-index
+
+        if (!rawPhone) {
+          errors.push({ row: rowNum, reason: "Missing phone number" });
+          continue;
+        }
+
+        const cleaned = rawPhone.replace(/[\s\-\(\)]/g, "");
+        if (!isValidPhone(rawPhone)) {
+          errors.push({ row: rowNum, reason: `Invalid phone: ${rawPhone}` });
+          continue;
+        }
+
+        if (seenPhones.has(cleaned)) {
+          errors.push({ row: rowNum, reason: `Duplicate: ${rawPhone}` });
+          continue;
+        }
+
+        seenPhones.add(cleaned);
+        validRows.push(row);
+      }
+
+      setCsvTotalParsed(rows.length);
+      setCsvErrors(errors);
       setCsvHeaders(headers);
-      setCsvRows(rows.filter((r) => r[headers.find((h) => {
-        const l = h.toLowerCase();
-        return l.includes("phone") || l.includes("mobile") || l === "number" || l === "whatsapp";
-      }) || ""]));
+
+      if (validRows.length > MAX_CONTACTS) {
+        setCsvWasCapped(true);
+        setCsvRows(validRows.slice(0, MAX_CONTACTS));
+        toast({
+          title: "CSV capped",
+          description: `Only the first ${MAX_CONTACTS.toLocaleString()} valid contacts will be used (${validRows.length.toLocaleString()} found).`,
+        });
+      } else {
+        setCsvWasCapped(false);
+        setCsvRows(validRows);
+      }
     });
+  };
+
+  const clearCsv = () => {
+    setCsvHeaders([]);
+    setCsvRows([]);
+    setCsvFileName("");
+    setCsvErrors([]);
+    setCsvTotalParsed(0);
+    setCsvWasCapped(false);
   };
 
   const downloadCsvTemplate = () => {
@@ -337,13 +404,16 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
     setMediaFile(file);
     if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
       setMediaPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setMediaPreviewUrl(null);
     }
   };
 
   const previewMessage = useMemo(() => {
-    if (!selectedTemplate || csvRows.length === 0) return selectedTemplate?.content || "";
+    if (!selectedTemplate) return "";
+    if (csvRows.length === 0) return displayContent;
     return resolveMessage(selectedTemplate.content || "", variableMapping, csvRows[0]);
-  }, [selectedTemplate, variableMapping, csvRows]);
+  }, [selectedTemplate, displayContent, variableMapping, csvRows]);
 
   // Estimated cost
   const estimatedCost = useMemo(() => {
@@ -353,6 +423,8 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
     const gst = rate * 0.18;
     return { perMsg: rate + gst, total: Math.round(csvRows.length * (rate + gst) * 100) / 100, count: csvRows.length };
   }, [csvRows, selectedTemplate]);
+
+  const canLaunch = !!selectedTemplate && csvRows.length > 0 && (!needsMedia || !!mediaFile);
 
   const launch = async () => {
     if (!user || !currentOrg || !selectedTemplate) return;
@@ -370,7 +442,7 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
         mediaUrl = urlData.publicUrl;
       }
 
-      // 2. Create campaign
+      // 2. Create campaign — store stripped content for display, raw stays in templates.content
       const { data: campaign, error: campErr } = await supabase
         .from("campaigns")
         .insert({
@@ -378,7 +450,7 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
           org_id: currentOrg.id,
           name: campaignName || `${selectedTemplate.name} - ${new Date().toLocaleDateString()}`,
           template_id: selectedTemplate.id,
-          template_message: selectedTemplate.content,
+          template_message: stripContentMarkers(selectedTemplate.content),
           media_url: mediaUrl,
           variable_mapping: variableMapping,
           message_category: (selectedTemplate.category || "marketing").toLowerCase(),
@@ -387,12 +459,11 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
         .single();
       if (campErr) throw campErr;
 
-      // 3. Create/upsert contacts from CSV and assign to campaign
+      // 3. Upsert contacts in batches
       const contactInserts = csvRows.map((row) => {
         const phone = row[phoneColumn] || "";
         const nameCol = csvHeaders.find((h) => h.toLowerCase() === "name");
         const emailCol = csvHeaders.find((h) => h.toLowerCase().includes("email"));
-        // Build custom_fields from non-standard columns
         const customFields: Record<string, string> = {};
         for (const h of csvHeaders) {
           if (h === phoneColumn || h === nameCol || h === emailCol) continue;
@@ -409,23 +480,29 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
         };
       }).filter((c) => c.phone_number);
 
-      // Upsert contacts (on phone_number + org_id)
-      const { data: contacts, error: contactErr } = await supabase
-        .from("contacts")
-        .upsert(contactInserts, { onConflict: "phone_number,org_id", ignoreDuplicates: false })
-        .select("id, phone_number");
+      const allContacts: { id: string; phone_number: string }[] = [];
+      for (let i = 0; i < contactInserts.length; i += UPSERT_BATCH) {
+        const batch = contactInserts.slice(i, i + UPSERT_BATCH);
+        const { data, error } = await supabase
+          .from("contacts")
+          .upsert(batch, { onConflict: "phone_number,org_id", ignoreDuplicates: false })
+          .select("id, phone_number");
+        if (error) throw error;
+        allContacts.push(...(data ?? []));
+      }
 
-      if (contactErr) throw contactErr;
-
-      // 4. Assign contacts to campaign
-      if (contacts && contacts.length > 0) {
-        const assignments = contacts.map((c: any) => ({
+      // 4. Assign contacts to campaign in batches
+      if (allContacts.length > 0) {
+        const assignments = allContacts.map((c) => ({
           campaign_id: campaign.id,
           contact_id: c.id,
           org_id: currentOrg.id,
         }));
-        const { error: assignErr } = await supabase.from("campaign_contacts").insert(assignments);
-        if (assignErr) throw assignErr;
+        for (let i = 0; i < assignments.length; i += UPSERT_BATCH) {
+          const batch = assignments.slice(i, i + UPSERT_BATCH);
+          const { error: assignErr } = await supabase.from("campaign_contacts").insert(batch);
+          if (assignErr) throw assignErr;
+        }
       }
 
       // 5. Update status to running and send
@@ -443,7 +520,7 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
       } else {
         toast({
           title: "Campaign launched!",
-          description: `Sending to ${contacts?.length || 0} contacts.`,
+          description: `Sending to ${allContacts.length.toLocaleString()} contacts.`,
         });
       }
 
@@ -455,23 +532,6 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const canProceed = () => {
-    switch (step) {
-      case 1: return !!selectedTemplate;
-      case 2: return csvRows.length > 0;
-      case 3: return true;
-      case 4: return needsMedia ? !!mediaFile : true;
-      case 5: return true;
-      default: return false;
-    }
-  };
-
-  const totalSteps = needsMedia ? 5 : 4;
-  const getActualStep = (s: number) => {
-    if (!needsMedia && s >= 4) return s + 1;
-    return s;
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -479,174 +539,153 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
         <Button variant="ghost" size="icon" onClick={onBack}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">Create Campaign</h1>
-          <p className="text-sm text-muted-foreground">
-            Step {step} of {totalSteps}
-          </p>
-        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Create Campaign</h1>
       </div>
 
-      {/* Progress */}
-      <div className="flex gap-1">
-        {Array.from({ length: totalSteps }, (_, i) => (
-          <div
-            key={i}
-            className={`h-1.5 flex-1 rounded-full ${i < step ? "bg-primary" : "bg-muted"}`}
-          />
-        ))}
-      </div>
-
-      {/* Step 1: Choose Template */}
-      {step === 1 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Choose Template</CardTitle>
-            <CardDescription>Select an approved WhatsApp template for your campaign</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <Label>Campaign Name</Label>
-              <Input
-                value={campaignName}
-                onChange={(e) => setCampaignName(e.target.value)}
-                placeholder="e.g., March Promo Blast"
-              />
-            </div>
-            <Separator />
-            <div>
-              <Label>Template</Label>
-              {templates.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  No approved templates. Create and submit a template first.
-                </p>
-              ) : (
-                <Select
-                  value={selectedTemplate?.id || ""}
-                  onValueChange={(val) => {
-                    const t = templates.find((t) => t.id === val);
-                    setSelectedTemplate(t || null);
-                    setMediaFile(null);
-                    setMediaPreviewUrl(null);
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a template" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {templates.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name} — {t.category || "marketing"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-            {selectedTemplate && (
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs text-muted-foreground whitespace-pre-wrap">{selectedTemplate.content}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 2: Upload List */}
-      {step === 2 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Contact List</CardTitle>
-            <CardDescription>Upload a CSV file with phone numbers and variables</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex gap-3">
-              <Button variant="outline" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-                <Upload className="h-4 w-4" /> Upload CSV
-              </Button>
-              <Button variant="ghost" className="gap-2" onClick={downloadCsvTemplate}>
-                <Download className="h-4 w-4" /> Download Template CSV
-              </Button>
-              <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
-            </div>
-
-            {csvFileName && (
-              <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
-                <FileText className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{csvFileName}</span>
-                <Badge variant="outline" className="ml-auto">{csvRows.length} contacts</Badge>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setCsvHeaders([]); setCsvRows([]); setCsvFileName(""); }}>
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            )}
-
-            {csvRows.length > 0 && (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  Preview (first 5 rows of {csvRows.length} total)
-                </p>
-                <div className="overflow-x-auto rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        {csvHeaders.map((h) => (
-                          <TableHead key={h} className="text-xs">{h}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {csvRows.slice(0, 5).map((row, i) => (
-                        <TableRow key={i}>
-                          {csvHeaders.map((h) => (
-                            <TableCell key={h} className="text-xs">{row[h] || "—"}</TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-
-                {/* Validation */}
-                {csvRows.some((r) => !r[phoneColumn]) && (
-                  <div className="flex items-center gap-2 text-destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <span className="text-sm">Some rows are missing phone numbers and will be skipped.</span>
-                  </div>
-                )}
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 3: Map Variables */}
-      {step === 3 && (
-        <div className="flex gap-6 items-start">
-          <Card className="flex-1">
-            <CardHeader>
-              <CardTitle>Map Variables</CardTitle>
-              <CardDescription>Connect template variables to your CSV columns</CardDescription>
+      <div className="flex gap-6 items-start">
+        {/* ─── Left: Form ─── */}
+        <div className="flex-1 space-y-6">
+          {/* Section 1: Template & Name */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Template & Name</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {templateVars.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">
-                  This template has no variables. Proceed to the next step.
+            <CardContent className="space-y-3">
+              <div>
+                <Label>Campaign Name</Label>
+                <Input
+                  value={campaignName}
+                  onChange={(e) => setCampaignName(e.target.value)}
+                  placeholder="e.g., March Promo Blast"
+                />
+              </div>
+              <div>
+                <Label>Template</Label>
+                {templates.length === 0 ? (
+                  <p className="py-3 text-center text-sm text-muted-foreground">
+                    No approved templates. Create and submit a template first.
+                  </p>
+                ) : (
+                  <Select
+                    value={selectedTemplate?.id || ""}
+                    onValueChange={(val) => {
+                      const t = templates.find((t) => t.id === val);
+                      setSelectedTemplate(t || null);
+                      setMediaFile(null);
+                      setMediaPreviewUrl(null);
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templates.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name} — {t.category || "marketing"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
+              {selectedTemplate && (
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  {mediaType && (
+                    <Badge variant="outline" className="mb-2 text-[10px] capitalize">{mediaType} header</Badge>
+                  )}
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">{displayContent}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Section 2: Upload Contacts */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Contact List</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-3">
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+                  <Upload className="h-3.5 w-3.5" /> Upload CSV
+                </Button>
+                {selectedTemplate && (
+                  <Button variant="ghost" size="sm" className="gap-2" onClick={downloadCsvTemplate}>
+                    <Download className="h-3.5 w-3.5" /> Sample CSV
+                  </Button>
+                )}
+                <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+              </div>
+
+              {csvFileName && (
+                <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{csvFileName}</span>
+                  <div className="ml-auto flex items-center gap-2">
+                    <Badge variant="outline" className="gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-green-600" />
+                      {csvRows.length.toLocaleString()} valid
+                    </Badge>
+                    {csvErrors.length > 0 && (
+                      <Badge variant="outline" className="gap-1 text-destructive border-destructive/30">
+                        <AlertCircle className="h-3 w-3" />
+                        {csvErrors.length.toLocaleString()} skipped
+                      </Badge>
+                    )}
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={clearCsv}>
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {csvWasCapped && (
+                <p className="text-xs text-amber-600">
+                  CSV had more than {MAX_CONTACTS.toLocaleString()} valid contacts. Only the first {MAX_CONTACTS.toLocaleString()} will be used.
                 </p>
-              ) : (
-                templateVars.map((v) => {
+              )}
+
+              {csvErrors.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                    View {csvErrors.length} skipped row{csvErrors.length > 1 ? "s" : ""}
+                  </summary>
+                  <div className="mt-1 max-h-32 overflow-y-auto rounded border p-2 space-y-0.5">
+                    {csvErrors.slice(0, 50).map((e, i) => (
+                      <p key={i} className="text-muted-foreground">
+                        Row {e.row}: {e.reason}
+                      </p>
+                    ))}
+                    {csvErrors.length > 50 && (
+                      <p className="text-muted-foreground">...and {csvErrors.length - 50} more</p>
+                    )}
+                  </div>
+                </details>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Section 3: Variable Mapping (conditional) */}
+          {templateVars.length > 0 && csvRows.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Map Variables</CardTitle>
+                <CardDescription className="text-xs">Connect template variables to CSV columns</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {templateVars.map((v) => {
                   const num = v.replace(/\D/g, "");
                   return (
-                    <div key={num} className="flex items-center gap-4">
-                      <div className="flex h-8 w-16 items-center justify-center rounded bg-primary/10 text-xs font-mono font-medium text-primary">
+                    <div key={num} className="flex items-center gap-3">
+                      <div className="flex h-7 w-14 items-center justify-center rounded bg-primary/10 text-xs font-mono font-medium text-primary">
                         {`{{${num}}}`}
                       </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                       <Select
                         value={variableMapping[num] || ""}
                         onValueChange={(val) => setVariableMapping({ ...variableMapping, [num]: val })}
                       >
-                        <SelectTrigger className="w-48">
+                        <SelectTrigger className="w-44 h-8 text-sm">
                           <SelectValue placeholder="Select column" />
                         </SelectTrigger>
                         <SelectContent>
@@ -657,159 +696,122 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
                       </Select>
                     </div>
                   );
-                })
-              )}
-            </CardContent>
-          </Card>
+                })}
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Preview */}
-          <Card className="w-80 shrink-0">
+          {/* Section 4: Attach Media (conditional) */}
+          {needsMedia && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">
+                  Attach {mediaType === "image" ? "Image" : mediaType === "video" ? "Video" : "Document"}
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Required by this template's {mediaType} header
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => mediaInputRef.current?.click()}>
+                  <Upload className="h-3.5 w-3.5" /> Upload
+                </Button>
+                <input
+                  ref={mediaInputRef}
+                  type="file"
+                  accept={mediaType ? mediaAcceptMap[mediaType] : ""}
+                  className="hidden"
+                  onChange={handleMediaUpload}
+                />
+                {mediaFile && (
+                  <div className="flex items-center gap-3">
+                    {mediaPreviewUrl && mediaFile.type.startsWith("image/") && (
+                      <img src={mediaPreviewUrl} alt="" className="h-16 w-16 rounded object-cover" />
+                    )}
+                    {mediaPreviewUrl && mediaFile.type.startsWith("video/") && (
+                      <video src={mediaPreviewUrl} className="h-16 w-16 rounded object-cover" muted />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">{mediaFile.name}</p>
+                      <p className="text-xs text-muted-foreground">{(mediaFile.size / 1048576).toFixed(1)} MB</p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setMediaFile(null); setMediaPreviewUrl(null); }}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Launch Bar */}
+          {selectedTemplate && csvRows.length > 0 && (
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-6 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Recipients:</span>{" "}
+                      <span className="font-semibold">{estimatedCost.count.toLocaleString()}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Est. Cost:</span>{" "}
+                      <span className="font-semibold">₹{estimatedCost.total}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Category:</span>{" "}
+                      <span className="font-semibold capitalize">{selectedTemplate.category || "marketing"}</span>
+                    </div>
+                  </div>
+                  <Button onClick={launch} disabled={!canLaunch || launching} className="gap-2 px-6">
+                    {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                    Launch Campaign
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* ─── Right: Message Preview ─── */}
+        {selectedTemplate && (
+          <Card className="w-80 shrink-0 sticky top-6">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Message Preview</CardTitle>
-              <CardDescription className="text-xs">Using first row data</CardDescription>
+              {csvRows.length > 0 && (
+                <CardDescription className="text-xs">Using first row data</CardDescription>
+              )}
             </CardHeader>
             <CardContent>
               <div className="rounded-lg bg-[#e5ddd5] p-3">
                 <div className="max-w-full rounded-lg rounded-tl-none bg-white p-2.5 shadow-sm">
+                  {mediaPreviewUrl && (
+                    <img src={mediaPreviewUrl} alt="" className="mb-2 w-full rounded object-cover" />
+                  )}
                   <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-900">
-                    {previewMessage || "Message body..."}
+                    {previewMessage || "Select a template to preview"}
                   </p>
                   <p className="mt-1 text-right text-[10px] text-gray-400">
                     {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Step 4: Attach Media (conditional) */}
-      {step === 4 && needsMedia && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Attach Media</CardTitle>
-            <CardDescription>
-              Upload the {mediaType} file required by this template
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button variant="outline" className="gap-2" onClick={() => mediaInputRef.current?.click()}>
-              <Upload className="h-4 w-4" /> Upload {mediaType === "image" ? "Image" : mediaType === "video" ? "Video" : "Document"}
-            </Button>
-            <input
-              ref={mediaInputRef}
-              type="file"
-              accept={mediaType ? mediaAcceptMap[mediaType] : ""}
-              className="hidden"
-              onChange={handleMediaUpload}
-            />
-            {mediaFile && (
-              <div className="flex items-center gap-3">
-                {mediaPreviewUrl && mediaFile.type.startsWith("image/") && (
-                  <img src={mediaPreviewUrl} alt="" className="h-24 w-24 rounded object-cover" />
-                )}
-                {mediaPreviewUrl && mediaFile.type.startsWith("video/") && (
-                  <video src={mediaPreviewUrl} className="h-24 w-24 rounded object-cover" muted />
-                )}
-                <div>
-                  <p className="text-sm font-medium">{mediaFile.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {(mediaFile.size / 1048576).toFixed(1)} MB
-                  </p>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => { setMediaFile(null); setMediaPreviewUrl(null); }}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Step 5 (or 4 if no media): Review & Launch */}
-      {((step === 5) || (step === 4 && !needsMedia)) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Review & Launch</CardTitle>
-            <CardDescription>Confirm your campaign details before sending</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="rounded-lg border p-3 text-center">
-                <p className="text-2xl font-bold">{estimatedCost.count}</p>
-                <p className="text-xs text-muted-foreground">Recipients</p>
-              </div>
-              <div className="rounded-lg border p-3 text-center">
-                <p className="text-2xl font-bold">₹{estimatedCost.total}</p>
-                <p className="text-xs text-muted-foreground">Estimated Cost</p>
-              </div>
-              <div className="rounded-lg border p-3 text-center">
-                <p className="text-2xl font-bold capitalize">{selectedTemplate?.category || "marketing"}</p>
-                <p className="text-xs text-muted-foreground">Category</p>
-              </div>
-              <div className="rounded-lg border p-3 text-center">
-                <p className="text-2xl font-bold">{selectedTemplate?.name}</p>
-                <p className="text-xs text-muted-foreground">Template</p>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div className="flex gap-6 items-start">
-              {/* Message preview */}
-              <div className="flex-1">
-                <p className="mb-2 text-sm font-medium">Message Preview (Row 1)</p>
-                <div className="rounded-lg bg-[#e5ddd5] p-3">
-                  <div className="max-w-full rounded-lg rounded-tl-none bg-white p-2.5 shadow-sm">
-                    {mediaPreviewUrl && (
-                      <img src={mediaPreviewUrl} alt="" className="mb-2 w-full rounded object-cover" />
-                    )}
-                    <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-gray-900">
-                      {previewMessage}
-                    </p>
-                  </div>
-                </div>
-              </div>
 
               {/* Variable mapping summary */}
-              {Object.keys(variableMapping).length > 0 && (
-                <div className="w-60">
-                  <p className="mb-2 text-sm font-medium">Variable Mapping</p>
-                  <div className="space-y-1">
-                    {Object.entries(variableMapping).map(([k, v]) => (
-                      <div key={k} className="flex items-center gap-2 text-xs">
-                        <span className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-primary">{`{{${k}}}`}</span>
-                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-muted-foreground">{v}</span>
-                      </div>
-                    ))}
-                  </div>
+              {Object.keys(variableMapping).length > 0 && csvRows.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Variable Mapping</p>
+                  {Object.entries(variableMapping).map(([k, v]) => (
+                    <div key={k} className="flex items-center gap-2 text-xs">
+                      <span className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-primary">{`{{${k}}}`}</span>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-muted-foreground">{v}</span>
+                    </div>
+                  ))}
                 </div>
               )}
-            </div>
-
-            <Separator />
-
-            <div className="flex justify-end">
-              <Button onClick={launch} disabled={launching} className="gap-2 px-8" size="lg">
-                {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                Launch Campaign
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <Button variant="outline" onClick={() => step > 1 ? setStep(step - 1) : onBack} className="gap-2">
-          <ArrowLeft className="h-4 w-4" /> {step > 1 ? "Back" : "Cancel"}
-        </Button>
-        {!((step === 5) || (step === 4 && !needsMedia)) && (
-          <Button onClick={() => setStep(step + 1)} disabled={!canProceed()} className="gap-2">
-            Next <ArrowRight className="h-4 w-4" />
-          </Button>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

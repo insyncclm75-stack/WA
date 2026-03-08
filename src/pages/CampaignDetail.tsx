@@ -86,7 +86,7 @@ export default function CampaignDetail() {
       {campaign.template_message && (
         <Card className="mb-6">
           <CardHeader><CardTitle className="text-sm">Message Template</CardTitle></CardHeader>
-          <CardContent><p className="whitespace-pre-wrap text-sm">{campaign.template_message}</p></CardContent>
+          <CardContent><p className="whitespace-pre-wrap text-sm">{campaign.template_message.replace(/^\[(Image|Video|Document) Header\]\n?/, "").trim()}</p></CardContent>
         </Card>
       )}
 
