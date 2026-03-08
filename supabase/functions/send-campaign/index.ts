@@ -7,8 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Process this many contacts per invocation, then self-chain for the rest
-const BATCH_SIZE = 50;
+// 30 messages/minute = 2s gap between sends. 10 per batch keeps each invocation ~25-30s.
+const BATCH_SIZE = 10;
+const SEND_DELAY_MS = 2000;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -202,8 +204,10 @@ serve(async (req) => {
     let batchSent = 0;
     let batchFailed = 0;
 
-    // ── Process this batch ──
-    for (const contact of contacts) {
+    // ── Process this batch (rate-limited to 30 msgs/min) ──
+    for (let ci = 0; ci < contacts.length; ci++) {
+      if (ci > 0) await sleep(SEND_DELAY_MS);
+      const contact = contacts[ci];
       const resolveField = (field: string): string => {
         if (field === "name") return contact.name || "Customer";
         if (field === "phone_number") return contact.phone_number || "";
