@@ -15,7 +15,6 @@ import {
   Send,
   Globe,
   Clock,
-  Play,
   TrendingUp,
 } from "lucide-react";
 
@@ -375,10 +374,10 @@ export default function Landing() {
                 className="group text-base px-8 backdrop-blur-sm"
                 asChild
               >
-                <Link to="/demo">
-                  <Play className="mr-2 h-4 w-4" />
-                  Watch Demo
-                </Link>
+                <a href="#features">
+                  <Clock className="mr-2 h-4 w-4" />
+                  See Features
+                </a>
               </Button>
             </motion.div>
 
@@ -400,27 +399,33 @@ export default function Landing() {
             </motion.div>
           </div>
 
-          {/* Hero stats ribbon */}
+          {/* Embedded product demo */}
           <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.7 }}
-            className="mx-auto mt-20 grid max-w-xl grid-cols-3 gap-6"
+            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.7 }}
+            className="mx-auto mt-16 max-w-5xl"
           >
-            {[
-              { value: "99.5%", label: "Delivery Rate" },
-              { value: "10K+", label: "Messages / min" },
-              { value: "< 1s", label: "Avg. Latency" },
-            ].map((s) => (
-              <div key={s.label} className="text-center">
-                <p className="text-2xl font-bold text-foreground sm:text-3xl">
-                  {s.value}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                  {s.label}
-                </p>
+            <div className="relative rounded-2xl border border-border/60 bg-black shadow-2xl shadow-primary/10 overflow-hidden">
+              {/* Browser-style top bar */}
+              <div className="flex items-center gap-2 border-b border-white/10 bg-black/80 px-4 py-2.5">
+                <div className="flex gap-1.5">
+                  <div className="h-3 w-3 rounded-full bg-red-500/80" />
+                  <div className="h-3 w-3 rounded-full bg-yellow-500/80" />
+                  <div className="h-3 w-3 rounded-full bg-green-500/80" />
+                </div>
+                <div className="ml-3 flex-1 rounded-md bg-white/10 px-3 py-1 text-[11px] text-white/40">
+                  app.insync.live/demo
+                </div>
               </div>
-            ))}
+              <iframe
+                src="/demo"
+                title="In-Sync Product Demo"
+                className="w-full border-0"
+                style={{ height: "min(70vh, 540px)" }}
+                loading="eager"
+              />
+            </div>
           </motion.div>
         </motion.div>
       </section>
