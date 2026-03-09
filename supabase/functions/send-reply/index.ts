@@ -97,11 +97,21 @@ serve(async (req) => {
 
     const contact = conversation.contact;
 
+    // Detect media type from URL extension
+    let mediaType = "image"; // default
+    if (media_url) {
+      const ext = media_url.split("?")[0].split(".").pop()?.toLowerCase();
+      if (["mp4", "3gpp"].includes(ext)) mediaType = "video";
+      else if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv"].includes(ext)) mediaType = "document";
+    }
+
     const messageContent: Record<string, unknown> = media_url
       ? {
           recipient_type: "individual",
-          type: "image",
-          image: { link: media_url, caption: content },
+          type: mediaType,
+          [mediaType]: mediaType === "document"
+            ? { link: media_url, caption: content, filename: media_url.split("/").pop()?.split("?")[0] || "file" }
+            : { link: media_url, caption: content },
         }
       : {
           recipient_type: "individual",
