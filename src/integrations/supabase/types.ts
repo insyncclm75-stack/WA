@@ -861,6 +861,201 @@ export type Database = {
         }
         Relationships: []
       }
+      pii_encryption_keys: {
+        Row: {
+          id: string
+          org_id: string
+          key_ciphertext: string
+          key_hint: string | null
+          status: string
+          created_by: string | null
+          created_at: string
+          rotated_at: string | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          key_ciphertext: string
+          key_hint?: string | null
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          rotated_at?: string | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          key_ciphertext?: string
+          key_hint?: string | null
+          status?: string
+          created_by?: string | null
+          created_at?: string
+          rotated_at?: string | null
+        }
+        Relationships: []
+      }
+      consent_records: {
+        Row: {
+          id: string
+          org_id: string
+          contact_id: string | null
+          user_identifier: string
+          consent_version: string
+          purpose: string
+          consented_at: string
+          withdrawn_at: string | null
+          ip_address: string | null
+          user_agent: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          contact_id?: string | null
+          user_identifier: string
+          consent_version?: string
+          purpose?: string
+          consented_at?: string
+          withdrawn_at?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          contact_id?: string | null
+          user_identifier?: string
+          consent_version?: string
+          purpose?: string
+          consented_at?: string
+          withdrawn_at?: string | null
+          ip_address?: string | null
+          user_agent?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      data_requests: {
+        Row: {
+          id: string
+          org_id: string
+          contact_id: string | null
+          requested_by_phone: string | null
+          request_type: string
+          status: string
+          due_date: string
+          completed_at: string | null
+          admin_notes: string | null
+          details: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          contact_id?: string | null
+          requested_by_phone?: string | null
+          request_type: string
+          status?: string
+          due_date?: string
+          completed_at?: string | null
+          admin_notes?: string | null
+          details?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          contact_id?: string | null
+          requested_by_phone?: string | null
+          request_type?: string
+          status?: string
+          due_date?: string
+          completed_at?: string | null
+          admin_notes?: string | null
+          details?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
+      breach_notifications: {
+        Row: {
+          id: string
+          org_id: string
+          triggered_by: string
+          title: string
+          description: string
+          impact: string
+          remedial_steps: string
+          dpo_contact: string
+          affected_count: number
+          notified_board: boolean
+          notified_principals: boolean
+          triggered_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          triggered_by: string
+          title: string
+          description: string
+          impact: string
+          remedial_steps: string
+          dpo_contact: string
+          affected_count?: number
+          notified_board?: boolean
+          notified_principals?: boolean
+          triggered_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          triggered_by?: string
+          title?: string
+          description?: string
+          impact?: string
+          remedial_steps?: string
+          dpo_contact?: string
+          affected_count?: number
+          notified_board?: boolean
+          notified_principals?: boolean
+          triggered_at?: string
+        }
+        Relationships: []
+      }
+      pii_access_log: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string | null
+          contact_id: string | null
+          table_name: string
+          column_name: string
+          purpose: string
+          accessed_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id?: string | null
+          contact_id?: string | null
+          table_name: string
+          column_name: string
+          purpose?: string
+          accessed_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          user_id?: string | null
+          contact_id?: string | null
+          table_name?: string
+          column_name?: string
+          purpose?: string
+          accessed_at?: string
+        }
+        Relationships: []
+      }
       contact_segments: {
         Row: {
           id: string
@@ -935,6 +1130,37 @@ export type Database = {
           _user_id: string
         }
         Returns: string[]
+      }
+      encrypt_pii_value: {
+        Args: {
+          p_org_id: string
+          plaintext: string
+        }
+        Returns: string
+      }
+      decrypt_pii_value: {
+        Args: {
+          p_org_id: string
+          ciphertext: string
+        }
+        Returns: string
+      }
+      get_contact_decrypted: {
+        Args: {
+          p_contact_id: string
+          p_purpose?: string
+        }
+        Returns: Json
+      }
+      encrypt_key_for_storage: {
+        Args: {
+          p_org_id: string
+          p_key: string
+          p_master: string
+          p_user_id: string
+          p_hint: string
+        }
+        Returns: boolean
       }
     }
     Enums: {

@@ -47,6 +47,7 @@ export function AppSidebar() {
     ...(isAdmin && hasOrg ? [{ to: "/billing", icon: Wallet, label: "Billing" }] : []),
     ...(isAdmin && hasOrg ? [{ to: "/users", icon: ShieldCheck, label: "User Management" }] : []),
     ...(isAdmin && hasOrg ? [{ to: "/audit-log", icon: ScrollText, label: "Audit Log" }] : []),
+    ...(isAdmin && hasOrg ? [{ to: "/dpdp", icon: ShieldCheck, label: "DPDP Compliance" }] : []),
     ...(isAdmin && hasOrg ? [{ to: "/org-settings", icon: Building2, label: "Org Settings" }] : []),
   ];
 
