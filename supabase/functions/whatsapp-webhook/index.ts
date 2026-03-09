@@ -87,6 +87,12 @@ serve(async (req) => {
           if (!textBody) textBody = listReply.title || "";
         }
 
+        // Detect CTWA (Click-to-WhatsApp Ads) referral data
+        const referral = msg.referral || msg.context?.referral || null;
+        const ctwaSource = referral?.source_type || referral?.source || null;
+        const ctwaAdId = referral?.ad_id || referral?.headline || null;
+        const ctwaClid = referral?.ctwa_clid || referral?.body || null;
+
         if (!fromNumber) continue;
 
         // ── Dedup: skip if we've already processed this exotel message ──
@@ -192,8 +198,11 @@ serve(async (req) => {
               phone_number: fromNumber,
               org_id: orgId,
               name: fromNumber,
-              source: "inbound",
+              source: ctwaSource ? "ctwa_ad" : "inbound",
               user_id: orgRow?.created_by,
+              ...(ctwaSource ? { ctwa_source: ctwaSource } : {}),
+              ...(ctwaAdId ? { ctwa_ad_id: ctwaAdId } : {}),
+              ...(ctwaClid ? { ctwa_clid: ctwaClid } : {}),
             })
             .select("id")
             .single();
@@ -250,6 +259,8 @@ serve(async (req) => {
               unread_count: 1,
               status: "open",
               ai_enabled: true,
+              ...(ctwaSource ? { ctwa_source: ctwaSource } : {}),
+              ...(ctwaAdId ? { ctwa_ad_id: ctwaAdId } : {}),
             })
             .select("id, ai_enabled")
             .single();
@@ -278,8 +289,85 @@ serve(async (req) => {
           exotel_message_id: exotelMsgId,
         });
 
-        // ── Check AI and trigger reply ──
-        if (aiEnabled) {
+        // ── Check for active chatbot session or matching flow trigger ──
+        let handledByFlow = false;
+
+        // Check for active chatbot session for this contact
+        const { data: activeSession } = await supabase
+          .from("chatbot_sessions")
+          .select("id, flow_id")
+          .eq("org_id", orgId)
+          .eq("contact_id", contactId)
+          .eq("status", "active")
+          .gt("expires_at", now)
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeSession) {
+          // Resume existing chatbot session
+          fetch(`${supabaseUrl}/functions/v1/execute-flow`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${supabaseServiceKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              session_id: activeSession.id,
+              conversation_id: conversationId,
+              contact_id: contactId,
+              org_id: orgId,
+              inbound_message: textBody || null,
+              inbound_interactive: interactiveData,
+            }),
+          }).catch((err) => console.error("Failed to resume flow:", err.message));
+          handledByFlow = true;
+        } else {
+          // Check for matching flow triggers
+          const { data: activeFlows } = await supabase
+            .from("chatbot_flows")
+            .select("id, trigger_type, trigger_value")
+            .eq("org_id", orgId)
+            .eq("status", "active");
+
+          if (activeFlows && activeFlows.length > 0) {
+            const lowerText = (textBody || "").toLowerCase().trim();
+            for (const flow of activeFlows) {
+              let triggered = false;
+              if (flow.trigger_type === "all_messages") {
+                triggered = true;
+              } else if (flow.trigger_type === "first_message" && !existingConvo) {
+                triggered = true;
+              } else if (flow.trigger_type === "keyword" && flow.trigger_value) {
+                const keywords = flow.trigger_value.split(",").map((k: string) => k.trim().toLowerCase());
+                triggered = keywords.some((kw: string) => lowerText === kw || lowerText.includes(kw));
+              }
+
+              if (triggered) {
+                fetch(`${supabaseUrl}/functions/v1/execute-flow`, {
+                  method: "POST",
+                  headers: {
+                    Authorization: `Bearer ${supabaseServiceKey}`,
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    flow_id: flow.id,
+                    conversation_id: conversationId,
+                    contact_id: contactId,
+                    org_id: orgId,
+                    inbound_message: textBody || null,
+                    inbound_interactive: interactiveData,
+                  }),
+                }).catch((err) => console.error("Failed to start flow:", err.message));
+                handledByFlow = true;
+                break; // Only trigger first matching flow
+              }
+            }
+          }
+        }
+
+        // ── Check AI and trigger reply (only if no chatbot flow handled it) ──
+        if (!handledByFlow && aiEnabled) {
           const { data: aiConfig } = await supabase
             .from("ai_config")
             .select("enabled")
@@ -303,6 +391,29 @@ serve(async (req) => {
             });
           }
         }
+
+        // ── Fire outbound webhooks for inbound message event ──
+        fetch(`${supabaseUrl}/functions/v1/fire-webhook`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${supabaseServiceKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            org_id: orgId,
+            event: "message.inbound",
+            payload: {
+              contact_id: contactId,
+              conversation_id: conversationId,
+              phone_number: fromNumber,
+              content: textBody,
+              media_url: mediaUrl,
+              message_type: messageType,
+              interactive_data: interactiveData,
+              timestamp: now,
+            },
+          }),
+        }).catch((err) => console.error("Failed to fire webhook:", err.message));
       } catch (msgErr) {
         console.error("Error processing message:", (msgErr as Error).message);
         // Continue processing remaining messages

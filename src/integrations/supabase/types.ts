@@ -504,6 +504,240 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_flows: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          description: string | null
+          trigger_type: string
+          trigger_value: string | null
+          status: string
+          nodes: Json
+          edges: Json
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          description?: string | null
+          trigger_type?: string
+          trigger_value?: string | null
+          status?: string
+          nodes?: Json
+          edges?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          description?: string | null
+          trigger_type?: string
+          trigger_value?: string | null
+          status?: string
+          nodes?: Json
+          edges?: Json
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      chatbot_sessions: {
+        Row: {
+          id: string
+          flow_id: string
+          contact_id: string
+          conversation_id: string | null
+          org_id: string
+          current_node_id: string
+          variables: Json
+          status: string
+          started_at: string
+          updated_at: string
+          expires_at: string | null
+        }
+        Insert: {
+          id?: string
+          flow_id: string
+          contact_id: string
+          conversation_id?: string | null
+          org_id: string
+          current_node_id: string
+          variables?: Json
+          status?: string
+          started_at?: string
+          updated_at?: string
+          expires_at?: string | null
+        }
+        Update: {
+          id?: string
+          flow_id?: string
+          contact_id?: string
+          conversation_id?: string | null
+          org_id?: string
+          current_node_id?: string
+          variables?: Json
+          status?: string
+          started_at?: string
+          updated_at?: string
+          expires_at?: string | null
+        }
+        Relationships: []
+      }
+      outbound_webhooks: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          url: string
+          secret: string | null
+          events: string[]
+          status: string
+          headers: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          url: string
+          secret?: string | null
+          events?: string[]
+          status?: string
+          headers?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          url?: string
+          secret?: string | null
+          events?: string[]
+          status?: string
+          headers?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      api_keys: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          key_hash: string
+          key_prefix: string
+          scopes: string[]
+          last_used_at: string | null
+          expires_at: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          key_hash: string
+          key_prefix: string
+          scopes?: string[]
+          last_used_at?: string | null
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          key_hash?: string
+          key_prefix?: string
+          scopes?: string[]
+          last_used_at?: string | null
+          expires_at?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      webhook_deliveries: {
+        Row: {
+          id: string
+          webhook_id: string
+          event: string
+          payload: Json
+          response_status: number | null
+          response_body: string | null
+          delivered_at: string
+          success: boolean
+        }
+        Insert: {
+          id?: string
+          webhook_id: string
+          event: string
+          payload: Json
+          response_status?: number | null
+          response_body?: string | null
+          delivered_at?: string
+          success?: boolean
+        }
+        Update: {
+          id?: string
+          webhook_id?: string
+          event?: string
+          payload?: Json
+          response_status?: number | null
+          response_body?: string | null
+          delivered_at?: string
+          success?: boolean
+        }
+        Relationships: []
+      }
+      contact_segments: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          description: string | null
+          filters: Json
+          contact_count: number
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          description?: string | null
+          filters?: Json
+          contact_count?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          description?: string | null
+          filters?: Json
+          contact_count?: number
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

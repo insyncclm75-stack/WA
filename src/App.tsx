@@ -22,6 +22,9 @@ import Settings from "./pages/Settings";
 import Users from "./pages/Users";
 import Billing from "./pages/Billing";
 import Automations from "./pages/Automations";
+import Chatbots from "./pages/Chatbots";
+import ChatbotBuilder from "./pages/ChatbotBuilder";
+import Developers from "./pages/Developers";
 import ResetPassword from "./pages/ResetPassword";
 import Demo from "./pages/Demo";
 import NotFound from "./pages/NotFound";
@@ -51,6 +54,9 @@ const App = () => (
               <Route path="/communications" element={<ProtectedRoute><Communications /></ProtectedRoute>} />
 
               <Route path="/automations" element={<ProtectedRoute><Automations /></ProtectedRoute>} />
+              <Route path="/chatbot" element={<ProtectedRoute><Chatbots /></ProtectedRoute>} />
+              <Route path="/chatbot/:id" element={<ProtectedRoute><ChatbotBuilder /></ProtectedRoute>} />
+              <Route path="/developers" element={<ProtectedRoute><Developers /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
               <Route path="/users" element={<ProtectedRoute><Users /></ProtectedRoute>} />
               <Route path="/billing" element={<ProtectedRoute><Billing /></ProtectedRoute>} />

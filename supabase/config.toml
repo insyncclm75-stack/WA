@@ -41,3 +41,15 @@ verify_jwt = false
 
 [functions.run-automations]
 verify_jwt = false
+
+[functions.execute-flow]
+verify_jwt = false
+
+[functions.fire-webhook]
+verify_jwt = false
+
+[functions.api-gateway]
+verify_jwt = false
+
+[functions.launch-scheduled]
+verify_jwt = false

@@ -15,6 +15,8 @@ import {
   FileText,
   Wallet,
   Zap,
+  Bot,
+  Code,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,8 @@ export function AppSidebar() {
       { to: "/templates", icon: FileText, label: "Templates" },
       { to: "/communications", icon: MessageSquare, label: "Communications" },
       { to: "/automations", icon: Zap, label: "Automations" },
+      { to: "/chatbot", icon: Bot, label: "Chatbot Builder" },
+      { to: "/developers", icon: Code, label: "Developers" },
       { to: "/settings", icon: Settings, label: "Settings" },
     ] : []),
     ...(isAdmin && hasOrg ? [{ to: "/billing", icon: Wallet, label: "Billing" }] : []),
