@@ -13,7 +13,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Plus, Trash2, Search, Megaphone, Tag, Filter, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Upload, Plus, Trash2, Search, Megaphone, Tag, Filter, X, Save, FolderOpen } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface Contact {
@@ -50,6 +51,11 @@ export default function Contacts() {
   // Filters
   const [sourceFilter, setSourceFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
+
+  // Segments
+  const [segments, setSegments] = useState<{ id: string; name: string; filters: any; contact_count: number }[]>([]);
+  const [segmentName, setSegmentName] = useState("");
+  const [showSaveSegment, setShowSaveSegment] = useState(false);
 
   const fetchContacts = useCallback(async () => {
     if (!currentOrg) return;
@@ -197,6 +203,40 @@ export default function Contacts() {
 
   const hasFilters = search || sourceFilter !== "all" || tagFilter !== "all";
 
+  // Fetch segments
+  useEffect(() => {
+    if (!currentOrg) return;
+    supabase.from("contact_segments").select("id, name, filters, contact_count").eq("org_id", currentOrg.id).order("name").then(({ data }) => setSegments((data as any) ?? []));
+  }, [currentOrg]);
+
+  const saveSegment = async () => {
+    if (!currentOrg || !user || !segmentName.trim()) return;
+    const filters = { search, sourceFilter, tagFilter };
+    await supabase.from("contact_segments").insert({
+      org_id: currentOrg.id,
+      name: segmentName.trim(),
+      filters,
+      contact_count: filtered.length,
+      created_by: user.id,
+    });
+    setSegmentName("");
+    setShowSaveSegment(false);
+    toast({ title: "Segment saved" });
+    const { data } = await supabase.from("contact_segments").select("id, name, filters, contact_count").eq("org_id", currentOrg.id).order("name");
+    setSegments((data as any) ?? []);
+  };
+
+  const loadSegment = (filters: any) => {
+    setSearch(filters.search || "");
+    setSourceFilter(filters.sourceFilter || "all");
+    setTagFilter(filters.tagFilter || "all");
+  };
+
+  const deleteSegment = async (id: string) => {
+    await supabase.from("contact_segments").delete().eq("id", id);
+    setSegments((prev) => prev.filter((s) => s.id !== id));
+  };
+
   return (
     <DashboardLayout>
       <div className="mb-6 flex items-center justify-between">
@@ -304,9 +344,48 @@ export default function Contacts() {
               </Select>
             )}
             {hasFilters && (
-              <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
-                <X className="h-3 w-3" /> Clear
-              </Button>
+              <>
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-1">
+                  <X className="h-3 w-3" /> Clear
+                </Button>
+                <Popover open={showSaveSegment} onOpenChange={setShowSaveSegment}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <Save className="h-3 w-3" /> Save Segment
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Save as Segment</p>
+                      <Input value={segmentName} onChange={(e) => setSegmentName(e.target.value)} placeholder="Segment name" className="h-8 text-sm" />
+                      <p className="text-xs text-muted-foreground">{filtered.length} contacts match</p>
+                      <Button size="sm" onClick={saveSegment} disabled={!segmentName.trim()} className="w-full">Save</Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </>
+            )}
+            {segments.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1">
+                    <FolderOpen className="h-3 w-3" /> Segments ({segments.length})
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 max-h-64 overflow-y-auto">
+                  <p className="text-sm font-medium mb-2">Saved Segments</p>
+                  {segments.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                      <button onClick={() => loadSegment(s.filters)} className="text-sm text-left hover:text-primary">
+                        {s.name} <span className="text-xs text-muted-foreground">({s.contact_count})</span>
+                      </button>
+                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => deleteSegment(s.id)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </PopoverContent>
+              </Popover>
             )}
           </div>
         </CardHeader>
