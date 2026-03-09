@@ -18,6 +18,7 @@ import {
   Bot,
   Code,
   BarChart3,
+  ScrollText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export function AppSidebar() {
     ] : []),
     ...(isAdmin && hasOrg ? [{ to: "/billing", icon: Wallet, label: "Billing" }] : []),
     ...(isAdmin && hasOrg ? [{ to: "/users", icon: ShieldCheck, label: "User Management" }] : []),
+    ...(isAdmin && hasOrg ? [{ to: "/audit-log", icon: ScrollText, label: "Audit Log" }] : []),
     ...(isAdmin && hasOrg ? [{ to: "/org-settings", icon: Building2, label: "Org Settings" }] : []),
   ];
 

@@ -702,6 +702,165 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string | null
+          action: string
+          resource_type: string | null
+          resource_id: string | null
+          details: Json
+          ip_address: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id?: string | null
+          action: string
+          resource_type?: string | null
+          resource_id?: string | null
+          details?: Json
+          ip_address?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          user_id?: string | null
+          action?: string
+          resource_type?: string | null
+          resource_id?: string | null
+          details?: Json
+          ip_address?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
+      agent_metrics: {
+        Row: {
+          id: string
+          org_id: string
+          user_id: string
+          date: string
+          conversations_handled: number
+          messages_sent: number
+          avg_response_time_sec: number | null
+          conversations_resolved: number
+          csat_score: number | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          user_id: string
+          date: string
+          conversations_handled?: number
+          messages_sent?: number
+          avg_response_time_sec?: number | null
+          conversations_resolved?: number
+          csat_score?: number | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          user_id?: string
+          date?: string
+          conversations_handled?: number
+          messages_sent?: number
+          avg_response_time_sec?: number | null
+          conversations_resolved?: number
+          csat_score?: number | null
+        }
+        Relationships: []
+      }
+      campaign_variants: {
+        Row: {
+          id: string
+          campaign_id: string
+          name: string
+          template_id: string | null
+          template_message: string | null
+          media_url: string | null
+          weight: number
+          sent_count: number
+          delivered_count: number
+          read_count: number
+          failed_count: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          name?: string
+          template_id?: string | null
+          template_message?: string | null
+          media_url?: string | null
+          weight?: number
+          sent_count?: number
+          delivered_count?: number
+          read_count?: number
+          failed_count?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          name?: string
+          template_id?: string | null
+          template_message?: string | null
+          media_url?: string | null
+          weight?: number
+          sent_count?: number
+          delivered_count?: number
+          read_count?: number
+          failed_count?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      daily_analytics: {
+        Row: {
+          id: string
+          org_id: string
+          date: string
+          messages_sent: number
+          messages_delivered: number
+          messages_read: number
+          messages_failed: number
+          messages_inbound: number
+          conversations_created: number
+          contacts_created: number
+          avg_response_time_min: number | null
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          date: string
+          messages_sent?: number
+          messages_delivered?: number
+          messages_read?: number
+          messages_failed?: number
+          messages_inbound?: number
+          conversations_created?: number
+          contacts_created?: number
+          avg_response_time_min?: number | null
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          date?: string
+          messages_sent?: number
+          messages_delivered?: number
+          messages_read?: number
+          messages_failed?: number
+          messages_inbound?: number
+          conversations_created?: number
+          contacts_created?: number
+          avg_response_time_min?: number | null
+        }
+        Relationships: []
+      }
       contact_segments: {
         Row: {
           id: string
