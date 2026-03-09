@@ -16,8 +16,8 @@ ALTER TABLE canned_responses ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Org members can read canned responses"
 ON canned_responses FOR SELECT
-USING (is_org_member(org_id));
+USING (is_org_member(auth.uid(), org_id));
 
 CREATE POLICY "Org admins can manage canned responses"
 ON canned_responses FOR ALL
-USING (is_org_member(org_id));
+USING (is_org_member(auth.uid(), org_id));

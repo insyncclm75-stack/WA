@@ -9,7 +9,7 @@ CREATE TABLE conversation_labels (
 );
 
 ALTER TABLE conversation_labels ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Org members can manage labels" ON conversation_labels FOR ALL USING (is_org_member(org_id));
+CREATE POLICY "Org members can manage labels" ON conversation_labels FOR ALL USING (is_org_member(auth.uid(), org_id));
 
 -- Junction table: conversation <-> label
 CREATE TABLE conversation_label_assignments (
@@ -20,7 +20,7 @@ CREATE TABLE conversation_label_assignments (
 
 ALTER TABLE conversation_label_assignments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Org members can manage label assignments" ON conversation_label_assignments FOR ALL
-USING (EXISTS (SELECT 1 FROM conversations c WHERE c.id = conversation_id AND is_org_member(c.org_id)));
+USING (EXISTS (SELECT 1 FROM conversations c WHERE c.id = conversation_id AND is_org_member(auth.uid(), c.org_id)));
 
 -- Conversation assignment: assigned_to already exists on conversations table
 -- Add resolved_at for tracking resolution time

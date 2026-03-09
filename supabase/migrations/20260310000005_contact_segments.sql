@@ -14,4 +14,4 @@ CREATE TABLE contact_segments (
 CREATE INDEX idx_contact_segments_org ON contact_segments(org_id);
 
 ALTER TABLE contact_segments ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Org members can manage segments" ON contact_segments FOR ALL USING (is_org_member(org_id));
+CREATE POLICY "Org members can manage segments" ON contact_segments FOR ALL USING (is_org_member(auth.uid(), org_id));
