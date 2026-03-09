@@ -159,15 +159,19 @@ function CampaignList({ onNew }: { onNew: () => void }) {
         return;
       }
 
-      // Atomic status transition: draft→running (prevents double-launch at DB level)
+      // Find current status to know which transition to attempt
+      const { data: camp } = await supabase.from("campaigns").select("status").eq("id", id).single();
+      const fromStatus = camp?.status === "scheduled" ? "scheduled" : "draft";
+
+      // Atomic status transition: draft/scheduled→running (prevents double-launch at DB level)
       const { data: transitioned } = await supabase.rpc("transition_campaign_status", {
         _campaign_id: id,
-        _from_status: "draft",
+        _from_status: fromStatus,
         _to_status: "running",
       });
 
       if (!transitioned) {
-        toast({ variant: "destructive", title: "Already launched", description: "This campaign is no longer in draft status." });
+        toast({ variant: "destructive", title: "Already launched", description: "This campaign is no longer launchable." });
         fetchCampaigns();
         return;
       }
@@ -226,14 +230,19 @@ function CampaignList({ onNew }: { onNew: () => void }) {
                     {stripContentMarkers(c.template_message)}
                   </p>
                 )}
+                {c.status === "scheduled" && c.scheduled_at && (
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Scheduled: {new Date(c.scheduled_at).toLocaleString()}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate(`/campaigns/${c.id}`)}>
                     <Eye className="h-3.5 w-3.5" /> View
                   </Button>
-                  {c.status === "draft" && (
+                  {(c.status === "draft" || c.status === "scheduled") && (
                     <Button size="sm" className="gap-1" onClick={() => launchCampaign(c.id)} disabled={launchingId === c.id}>
                       {launchingId === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                      {launchingId === c.id ? "Launching..." : "Launch"}
+                      {launchingId === c.id ? "Launching..." : c.status === "scheduled" ? "Launch Now" : "Launch"}
                     </Button>
                   )}
                 </div>
@@ -272,6 +281,10 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
   // Media
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaPreviewUrl, setMediaPreviewUrl] = useState<string | null>(null);
+
+  // Scheduling
+  const [scheduleMode, setScheduleMode] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
 
   // Launching + progress
   const [launching, setLaunching] = useState(false);
@@ -558,32 +571,47 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
         throw new Error("No contacts could be uploaded. Check your CSV data.");
       }
 
-      // 5. Atomically transition to running and send
-      await supabase.rpc("transition_campaign_status", {
-        _campaign_id: campaign.id,
-        _from_status: "draft",
-        _to_status: "running",
-      });
-      const { data: sendResult, error: invokeErr } = await supabase.functions.invoke("send-campaign", {
-        body: { campaign_id: campaign.id },
-      });
+      // 5. Schedule or launch immediately
+      if (scheduleMode && scheduledAt) {
+        // Schedule for later
+        await supabase
+          .from("campaigns")
+          .update({ status: "scheduled", scheduled_at: new Date(scheduledAt).toISOString() })
+          .eq("id", campaign.id);
 
-      if (invokeErr) {
-        throw new Error(invokeErr.message || "Failed to start campaign send");
-      }
-
-      if (sendResult?.error === "Insufficient balance") {
-        toast({
-          variant: "destructive",
-          title: "Insufficient Balance",
-          description: `Required: ₹${sendResult.required}, Current: ₹${sendResult.current_balance}. Please add ₹${sendResult.shortfall} to your wallet.`,
-        });
-      } else {
         const failNote = totalFailed > 0 ? ` (${totalFailed} records failed to upload)` : "";
         toast({
-          title: "Campaign launched!",
-          description: `Sending to ${totalAssigned.toLocaleString()} contacts.${failNote}`,
+          title: "Campaign scheduled!",
+          description: `Will send to ${totalAssigned.toLocaleString()} contacts at ${new Date(scheduledAt).toLocaleString()}.${failNote}`,
         });
+      } else {
+        // Launch immediately
+        await supabase.rpc("transition_campaign_status", {
+          _campaign_id: campaign.id,
+          _from_status: "draft",
+          _to_status: "running",
+        });
+        const { data: sendResult, error: invokeErr } = await supabase.functions.invoke("send-campaign", {
+          body: { campaign_id: campaign.id },
+        });
+
+        if (invokeErr) {
+          throw new Error(invokeErr.message || "Failed to start campaign send");
+        }
+
+        if (sendResult?.error === "Insufficient balance") {
+          toast({
+            variant: "destructive",
+            title: "Insufficient Balance",
+            description: `Required: ₹${sendResult.required}, Current: ₹${sendResult.current_balance}. Please add ₹${sendResult.shortfall} to your wallet.`,
+          });
+        } else {
+          const failNote = totalFailed > 0 ? ` (${totalFailed} records failed to upload)` : "";
+          toast({
+            title: "Campaign launched!",
+            description: `Sending to ${totalAssigned.toLocaleString()} contacts.${failNote}`,
+          });
+        }
       }
 
       navigate(`/campaigns/${campaign.id}`);
@@ -820,10 +848,34 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
                       <span className="font-semibold capitalize">{selectedTemplate.category || "marketing"}</span>
                     </div>
                   </div>
-                  <Button onClick={launch} disabled={!canLaunch || launching} className="gap-2 px-6">
-                    {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
-                    {launching ? "Uploading..." : "Launch Campaign"}
-                  </Button>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={scheduleMode}
+                        onChange={(e) => setScheduleMode(e.target.checked)}
+                        className="rounded"
+                      />
+                      Schedule
+                    </label>
+                    {scheduleMode && (
+                      <input
+                        type="datetime-local"
+                        value={scheduledAt}
+                        onChange={(e) => setScheduledAt(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                        className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+                      />
+                    )}
+                    <Button
+                      onClick={launch}
+                      disabled={!canLaunch || launching || (scheduleMode && !scheduledAt)}
+                      className="gap-2 px-6"
+                    >
+                      {launching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+                      {launching ? "Uploading..." : scheduleMode ? "Schedule Campaign" : "Launch Campaign"}
+                    </Button>
+                  </div>
                 </div>
                 {uploadProgress && (
                   <div className="space-y-1">
