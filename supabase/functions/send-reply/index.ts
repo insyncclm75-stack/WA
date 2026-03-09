@@ -35,8 +35,8 @@ serve(async (req) => {
       });
     }
 
-    const { conversation_id, content, media_url } = await req.json();
-    if (!conversation_id || !content) {
+    const { conversation_id, content, media_url, message_type, interactive_data } = await req.json();
+    if (!conversation_id || (!content && message_type !== "interactive_buttons" && message_type !== "interactive_list")) {
       return new Response(JSON.stringify({ error: "conversation_id and content are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -97,27 +97,62 @@ serve(async (req) => {
 
     const contact = conversation.contact;
 
-    // Detect media type from URL extension
-    let mediaType = "image"; // default
-    if (media_url) {
+    let messageContent: Record<string, unknown>;
+
+    if (message_type === "interactive_buttons" && interactive_data) {
+      // Interactive reply buttons (up to 3)
+      messageContent = {
+        recipient_type: "individual",
+        type: "interactive",
+        interactive: {
+          type: "button",
+          ...(interactive_data.header ? { header: { type: "text", text: interactive_data.header } } : {}),
+          body: { text: content || interactive_data.body || "" },
+          ...(interactive_data.footer ? { footer: { text: interactive_data.footer } } : {}),
+          action: {
+            buttons: (interactive_data.buttons as any[]).map((btn: any) => ({
+              type: "reply",
+              reply: { id: btn.id, title: btn.title },
+            })),
+          },
+        },
+      };
+    } else if (message_type === "interactive_list" && interactive_data) {
+      // Interactive list message
+      messageContent = {
+        recipient_type: "individual",
+        type: "interactive",
+        interactive: {
+          type: "list",
+          ...(interactive_data.header ? { header: { type: "text", text: interactive_data.header } } : {}),
+          body: { text: content || interactive_data.body || "" },
+          ...(interactive_data.footer ? { footer: { text: interactive_data.footer } } : {}),
+          action: {
+            button: interactive_data.button_text || "Select",
+            sections: interactive_data.sections,
+          },
+        },
+      };
+    } else if (media_url) {
+      // Detect media type from URL extension
+      let mediaType = "image";
       const ext = media_url.split("?")[0].split(".").pop()?.toLowerCase();
       if (["mp4", "3gpp"].includes(ext)) mediaType = "video";
       else if (["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "csv"].includes(ext)) mediaType = "document";
+      messageContent = {
+        recipient_type: "individual",
+        type: mediaType,
+        [mediaType]: mediaType === "document"
+          ? { link: media_url, caption: content, filename: media_url.split("/").pop()?.split("?")[0] || "file" }
+          : { link: media_url, caption: content },
+      };
+    } else {
+      messageContent = {
+        recipient_type: "individual",
+        type: "text",
+        text: { preview_url: false, body: content },
+      };
     }
-
-    const messageContent: Record<string, unknown> = media_url
-      ? {
-          recipient_type: "individual",
-          type: mediaType,
-          [mediaType]: mediaType === "document"
-            ? { link: media_url, caption: content, filename: media_url.split("/").pop()?.split("?")[0] || "file" }
-            : { link: media_url, caption: content },
-        }
-      : {
-          recipient_type: "individual",
-          type: "text",
-          text: { preview_url: false, body: content },
-        };
 
     const payload = {
       whatsapp: {
@@ -151,8 +186,10 @@ serve(async (req) => {
         contact_id: conversation.contact_id,
         conversation_id,
         org_id: conversation.org_id,
-        content,
+        content: content || null,
         media_url: media_url || null,
+        message_type: message_type || "text",
+        interactive_data: interactive_data || null,
         status: sendSuccess ? "sent" : "failed",
         exotel_message_id: exotelMessageId,
         sent_at: sendSuccess ? new Date().toISOString() : null,

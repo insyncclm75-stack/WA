@@ -45,7 +45,7 @@ serve(async (req) => {
         const toNumber = msg.to;     // business phone / sender number
         const exotelMsgId = msg.id || msg.sid || msg.data?.sid || null;
         const contentType = msg.content?.type || "text";
-        const textBody =
+        let textBody =
           msg.content?.text?.body ||
           msg.content?.caption ||
           "";
@@ -57,6 +57,35 @@ serve(async (req) => {
           msg.content?.video?.url ||
           msg.content?.document?.url ||
           null;
+
+        // Detect interactive responses (button clicks, list selections)
+        const buttonReply =
+          msg.content?.interactive?.button_reply ||
+          msg.content?.button?.payload && { id: msg.content.button.payload, title: msg.content.button.text } ||
+          null;
+        const listReply =
+          msg.content?.interactive?.list_reply ||
+          null;
+
+        let messageType = "text";
+        let interactiveData: Record<string, unknown> | null = null;
+
+        if (buttonReply) {
+          messageType = "button_response";
+          interactiveData = {
+            button_id: buttonReply.id,
+            button_text: buttonReply.title,
+          };
+          if (!textBody) textBody = buttonReply.title || "";
+        } else if (listReply) {
+          messageType = "list_response";
+          interactiveData = {
+            list_item_id: listReply.id,
+            list_item_title: listReply.title,
+            list_item_description: listReply.description || null,
+          };
+          if (!textBody) textBody = listReply.title || "";
+        }
 
         if (!fromNumber) continue;
 
@@ -181,7 +210,7 @@ serve(async (req) => {
         let aiEnabled = true;
 
         const messagePreview = textBody
-          ? textBody.substring(0, 100)
+          ? (messageType === "button_response" ? `[Button] ${textBody}` : messageType === "list_response" ? `[List] ${textBody}` : textBody).substring(0, 100)
           : `[${contentType}]`;
 
         const now = new Date().toISOString();
@@ -242,6 +271,8 @@ serve(async (req) => {
           org_id: orgId,
           content: textBody || null,
           media_url: mediaUrl,
+          message_type: messageType,
+          interactive_data: interactiveData,
           status: "delivered",
           sent_at: now,
           exotel_message_id: exotelMsgId,

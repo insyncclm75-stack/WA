@@ -207,7 +207,9 @@ export type Database = {
           error_message: string | null
           exotel_message_id: string | null
           id: string
+          interactive_data: Record<string, unknown> | null
           media_url: string | null
+          message_type: string
           org_id: string
           read_at: string | null
           sent_at: string | null
@@ -223,7 +225,9 @@ export type Database = {
           error_message?: string | null
           exotel_message_id?: string | null
           id?: string
+          interactive_data?: Record<string, unknown> | null
           media_url?: string | null
+          message_type?: string
           org_id: string
           read_at?: string | null
           sent_at?: string | null
@@ -239,7 +243,9 @@ export type Database = {
           error_message?: string | null
           exotel_message_id?: string | null
           id?: string
+          interactive_data?: Record<string, unknown> | null
           media_url?: string | null
+          message_type?: string
           org_id?: string
           read_at?: string | null
           sent_at?: string | null
@@ -429,6 +435,7 @@ export type Database = {
       }
       templates: {
         Row: {
+          buttons: Record<string, unknown>[] | null
           category: string | null
           content: string
           created_at: string
@@ -442,6 +449,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          buttons?: Record<string, unknown>[] | null
           category?: string | null
           content: string
           created_at?: string
@@ -455,6 +463,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          buttons?: Record<string, unknown>[] | null
           category?: string | null
           content?: string
           created_at?: string

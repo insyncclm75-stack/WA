@@ -23,6 +23,11 @@ import {
   Paperclip,
   MessageSquare,
   User,
+  MousePointerClick,
+  List,
+  Plus,
+  Trash2,
+  Type,
 } from "lucide-react";
 
 interface Conversation {
@@ -44,6 +49,8 @@ interface Message {
   direction: string;
   content: string | null;
   media_url: string | null;
+  message_type?: string;
+  interactive_data?: any;
   status: string;
   sent_at: string | null;
   created_at: string;
@@ -83,6 +90,16 @@ export default function Communications() {
   const [loadingConvos, setLoadingConvos] = useState(true);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Interactive message state
+  const [replyMode, setReplyMode] = useState<"text" | "buttons" | "list">("text");
+  const [replyButtons, setReplyButtons] = useState<{ id: string; title: string }[]>([
+    { id: "btn_1", title: "" },
+  ]);
+  const [listData, setListData] = useState({
+    buttonText: "Select",
+    sections: [{ title: "", rows: [{ id: "row_1", title: "", description: "" }] }],
+  });
 
   const activeConvo = conversations.find((c) => c.id === activeId) || null;
   const window24h = replyWindowRemaining(activeConvo?.last_inbound_at || null);
@@ -124,7 +141,7 @@ export default function Communications() {
     setLoadingMsgs(true);
     const { data } = await supabase
       .from("messages")
-      .select("id, direction, content, media_url, status, sent_at, created_at")
+      .select("id, direction, content, media_url, message_type, interactive_data, status, sent_at, created_at")
       .eq("conversation_id", activeId)
       .order("created_at", { ascending: true })
       .limit(200);
@@ -163,17 +180,45 @@ export default function Communications() {
   }, [messages]);
 
   const sendReply = async () => {
-    if (!replyText.trim() || !activeId || sending) return;
+    if (!activeId || sending) return;
+
+    let body: any;
+    if (replyMode === "buttons") {
+      const validButtons = replyButtons.filter((b) => b.title.trim());
+      if (validButtons.length === 0 || !replyText.trim()) return;
+      body = {
+        conversation_id: activeId,
+        content: replyText.trim(),
+        message_type: "interactive_buttons",
+        interactive_data: { buttons: validButtons },
+      };
+    } else if (replyMode === "list") {
+      const validSections = listData.sections
+        .map((s) => ({ ...s, rows: s.rows.filter((r) => r.title.trim()) }))
+        .filter((s) => s.rows.length > 0);
+      if (validSections.length === 0 || !replyText.trim()) return;
+      body = {
+        conversation_id: activeId,
+        content: replyText.trim(),
+        message_type: "interactive_list",
+        interactive_data: { button_text: listData.buttonText || "Select", sections: validSections },
+      };
+    } else {
+      if (!replyText.trim()) return;
+      body = { conversation_id: activeId, content: replyText.trim() };
+    }
+
     setSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-reply", {
-        body: { conversation_id: activeId, content: replyText.trim() },
-      });
+      const { data, error } = await supabase.functions.invoke("send-reply", { body });
       if (error) throw error;
       if (data?.error) {
         toast({ variant: "destructive", title: "Reply failed", description: data.error });
       } else {
         setReplyText("");
+        setReplyMode("text");
+        setReplyButtons([{ id: "btn_1", title: "" }]);
+        setListData({ buttonText: "Select", sections: [{ title: "", rows: [{ id: "row_1", title: "", description: "" }] }] });
       }
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err.message });
@@ -337,6 +382,39 @@ export default function Communications() {
                           {m.content && (
                             <p className="whitespace-pre-wrap text-sm">{m.content}</p>
                           )}
+                          {/* Outbound interactive buttons */}
+                          {m.message_type === "interactive_buttons" && m.interactive_data?.buttons && (
+                            <div className="mt-2 space-y-1 border-t border-current/10 pt-2">
+                              {(m.interactive_data.buttons as any[]).map((btn: any, i: number) => (
+                                <div key={i} className="rounded border border-current/20 px-2 py-1 text-center text-xs font-medium">
+                                  {btn.title}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* Outbound interactive list */}
+                          {m.message_type === "interactive_list" && m.interactive_data && (
+                            <div className="mt-2 border-t border-current/10 pt-2">
+                              <div className="rounded border border-current/20 px-2 py-1 text-center text-xs font-medium flex items-center justify-center gap-1">
+                                <List className="h-3 w-3" />
+                                {(m.interactive_data as any).button_text || "Select"}
+                              </div>
+                            </div>
+                          )}
+                          {/* Inbound button response */}
+                          {m.message_type === "button_response" && m.interactive_data && (
+                            <div className="flex items-center gap-1 mt-1 text-xs opacity-70">
+                              <MousePointerClick className="h-3 w-3" />
+                              Tapped: {(m.interactive_data as any).button_text}
+                            </div>
+                          )}
+                          {/* Inbound list response */}
+                          {m.message_type === "list_response" && m.interactive_data && (
+                            <div className="flex items-center gap-1 mt-1 text-xs opacity-70">
+                              <List className="h-3 w-3" />
+                              Selected: {(m.interactive_data as any).list_item_title}
+                            </div>
+                          )}
                           <div className={cn("mt-1 flex items-center justify-end gap-1", isInbound ? "text-muted-foreground" : "text-primary-foreground/70")}>
                             <span className="text-[10px]">
                               {m.sent_at
@@ -376,23 +454,228 @@ export default function Communications() {
                   </p>
                 </div>
               ) : (
-                <div className="flex items-end gap-2">
-                  <Textarea
-                    value={replyText}
-                    onChange={(e) => setReplyText(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Type a message..."
-                    className="min-h-[40px] max-h-[120px] resize-none"
-                    rows={1}
-                  />
-                  <Button
-                    size="icon"
-                    onClick={sendReply}
-                    disabled={!replyText.trim() || sending}
-                    className="shrink-0"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                <div className="space-y-2">
+                  {/* Mode selector */}
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant={replyMode === "text" ? "default" : "ghost"}
+                      onClick={() => setReplyMode("text")}
+                      className="h-7 px-2 text-xs"
+                    >
+                      <Type className="mr-1 h-3 w-3" />
+                      Text
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={replyMode === "buttons" ? "default" : "ghost"}
+                      onClick={() => setReplyMode("buttons")}
+                      className="h-7 px-2 text-xs"
+                    >
+                      <MousePointerClick className="mr-1 h-3 w-3" />
+                      Buttons
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={replyMode === "list" ? "default" : "ghost"}
+                      onClick={() => setReplyMode("list")}
+                      className="h-7 px-2 text-xs"
+                    >
+                      <List className="mr-1 h-3 w-3" />
+                      List
+                    </Button>
+                  </div>
+
+                  {/* Message body (always shown) */}
+                  <div className="flex items-end gap-2">
+                    <Textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onKeyDown={replyMode === "text" ? handleKeyDown : undefined}
+                      placeholder={replyMode === "text" ? "Type a message..." : "Message body..."}
+                      className="min-h-[40px] max-h-[120px] resize-none"
+                      rows={1}
+                    />
+                    <Button
+                      size="icon"
+                      onClick={sendReply}
+                      disabled={!replyText.trim() || sending}
+                      className="shrink-0"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Buttons builder */}
+                  {replyMode === "buttons" && (
+                    <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2">
+                      <p className="text-xs font-medium text-muted-foreground">Reply Buttons (max 3)</p>
+                      {replyButtons.map((btn, i) => (
+                        <div key={btn.id} className="flex items-center gap-1.5">
+                          <Input
+                            value={btn.title}
+                            onChange={(e) => {
+                              const val = e.target.value.slice(0, 20);
+                              setReplyButtons((prev) => prev.map((b, j) => (j === i ? { ...b, title: val } : b)));
+                            }}
+                            placeholder={`Button ${i + 1}`}
+                            className="h-7 text-xs"
+                          />
+                          {replyButtons.length > 1 && (
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-7 w-7 shrink-0"
+                              onClick={() => setReplyButtons((prev) => prev.filter((_, j) => j !== i))}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {replyButtons.length < 3 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() =>
+                            setReplyButtons((prev) => [...prev, { id: `btn_${prev.length + 1}`, title: "" }])
+                          }
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          Add Button
+                        </Button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* List builder */}
+                  {replyMode === "list" && (
+                    <div className="space-y-2 rounded-md border border-border bg-muted/30 p-2">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-medium text-muted-foreground">Menu Button:</p>
+                        <Input
+                          value={listData.buttonText}
+                          onChange={(e) => setListData((p) => ({ ...p, buttonText: e.target.value.slice(0, 20) }))}
+                          className="h-7 w-32 text-xs"
+                        />
+                      </div>
+                      {listData.sections.map((section, si) => (
+                        <div key={si} className="space-y-1 rounded border border-border/50 p-1.5">
+                          <Input
+                            value={section.title}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setListData((p) => ({
+                                ...p,
+                                sections: p.sections.map((s, j) => (j === si ? { ...s, title: val } : s)),
+                              }));
+                            }}
+                            placeholder="Section title (optional)"
+                            className="h-7 text-xs"
+                          />
+                          {section.rows.map((row, ri) => (
+                            <div key={row.id} className="flex items-center gap-1">
+                              <Input
+                                value={row.title}
+                                onChange={(e) => {
+                                  const val = e.target.value.slice(0, 24);
+                                  setListData((p) => ({
+                                    ...p,
+                                    sections: p.sections.map((s, j) =>
+                                      j === si
+                                        ? { ...s, rows: s.rows.map((r, k) => (k === ri ? { ...r, title: val } : r)) }
+                                        : s
+                                    ),
+                                  }));
+                                }}
+                                placeholder="Item title"
+                                className="h-7 text-xs"
+                              />
+                              <Input
+                                value={row.description}
+                                onChange={(e) => {
+                                  const val = e.target.value.slice(0, 72);
+                                  setListData((p) => ({
+                                    ...p,
+                                    sections: p.sections.map((s, j) =>
+                                      j === si
+                                        ? { ...s, rows: s.rows.map((r, k) => (k === ri ? { ...r, description: val } : r)) }
+                                        : s
+                                    ),
+                                  }));
+                                }}
+                                placeholder="Description"
+                                className="h-7 text-xs"
+                              />
+                              {section.rows.length > 1 && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 shrink-0"
+                                  onClick={() =>
+                                    setListData((p) => ({
+                                      ...p,
+                                      sections: p.sections.map((s, j) =>
+                                        j === si ? { ...s, rows: s.rows.filter((_, k) => k !== ri) } : s
+                                      ),
+                                    }))
+                                  }
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {section.rows.length < 10 && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 text-xs"
+                              onClick={() =>
+                                setListData((p) => ({
+                                  ...p,
+                                  sections: p.sections.map((s, j) =>
+                                    j === si
+                                      ? {
+                                          ...s,
+                                          rows: [
+                                            ...s.rows,
+                                            { id: `row_${Date.now()}`, title: "", description: "" },
+                                          ],
+                                        }
+                                      : s
+                                  ),
+                                }))
+                              }
+                            >
+                              <Plus className="mr-1 h-3 w-3" />
+                              Add Item
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                      {listData.sections.length < 10 && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() =>
+                            setListData((p) => ({
+                              ...p,
+                              sections: [
+                                ...p.sections,
+                                { title: "", rows: [{ id: `row_${Date.now()}`, title: "", description: "" }] },
+                              ],
+                            }))
+                          }
+                        >
+                          <Plus className="mr-1 h-3 w-3" />
+                          Add Section
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -142,7 +142,7 @@ serve(async (req) => {
     if (campaign.template_id) {
       const { data: tpl } = await supabase
         .from("templates")
-        .select("name, language, content")
+        .select("name, language, content, buttons")
         .eq("id", campaign.template_id)
         .single();
       if (tpl) {
@@ -307,6 +307,22 @@ serve(async (req) => {
           }));
           components.push({ type: "body", parameters: bodyParams });
         }
+
+        // Add button parameters for dynamic URL buttons
+        const tplButtons = (tpl?.buttons as any[]) || [];
+        tplButtons
+          .filter((b: any) => b.type === "URL" && b.url?.includes("{{"))
+          .forEach((btn: any, btnIndex: number) => {
+            const urlVarMatch = btn.url.match(/\{\{(\d+)\}\}/);
+            if (urlVarMatch && mapping) {
+              components.push({
+                type: "button",
+                sub_type: "url",
+                index: String(btnIndex),
+                parameters: [{ type: "text", text: resolveField(mapping[urlVarMatch[1]] || "") }],
+              });
+            }
+          });
 
         const content: Record<string, unknown> = {
           type: "template",

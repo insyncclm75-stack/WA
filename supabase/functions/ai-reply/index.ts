@@ -108,7 +108,7 @@ serve(async (req) => {
     const maxHistory = aiConfig.max_history || 20;
     const { data: messages, error: msgError } = await supabase
       .from("messages")
-      .select("direction, content")
+      .select("direction, content, message_type, interactive_data")
       .eq("conversation_id", conversation_id)
       .order("created_at", { ascending: true })
       .limit(maxHistory);
@@ -132,10 +132,18 @@ serve(async (req) => {
 
     const claudeMessages = (messages || [])
       .filter((m: any) => m.content)
-      .map((m: any) => ({
-        role: m.direction === "inbound" ? "user" : "assistant",
-        content: m.content,
-      }));
+      .map((m: any) => {
+        let msgContent = m.content;
+        if (m.message_type === "button_response" && m.interactive_data) {
+          msgContent = `[User clicked button: "${m.interactive_data.button_text}"] ${m.content || ""}`;
+        } else if (m.message_type === "list_response" && m.interactive_data) {
+          msgContent = `[User selected from list: "${m.interactive_data.list_item_title}"] ${m.content || ""}`;
+        }
+        return {
+          role: m.direction === "inbound" ? "user" : "assistant",
+          content: msgContent,
+        };
+      });
 
     if (claudeMessages.length === 0) {
       return new Response(

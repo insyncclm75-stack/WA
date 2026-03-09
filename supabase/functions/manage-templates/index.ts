@@ -199,6 +199,10 @@ serve(async (req) => {
         contentText = headerComp.text + "\n\n" + contentText;
       }
 
+      // Extract buttons from components for DB storage
+      const buttonsComp = (components || []).find((c: any) => c.type === "BUTTONS");
+      const buttonsData = buttonsComp?.buttons || [];
+
       // Save to DB as pending, scoped to org
       const { data: inserted, error: dbError } = await supabase
         .from("templates")
@@ -211,6 +215,7 @@ serve(async (req) => {
           language,
           status: "pending",
           exotel_template_id: exotelTemplateId,
+          buttons: buttonsData,
         })
         .select()
         .single();
