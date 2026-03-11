@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
@@ -138,6 +139,11 @@ export default function Communications() {
   // AI suggestions
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+
+  // New message dialog
+  const [newMsgOpen, setNewMsgOpen] = useState(false);
+  const [newMsgPhone, setNewMsgPhone] = useState("");
+  const [newMsgLoading, setNewMsgLoading] = useState(false);
 
   // Interactive message state
   const [replyMode, setReplyMode] = useState<"text" | "buttons" | "list">("text");
@@ -366,6 +372,77 @@ export default function Communications() {
     );
   };
 
+  /** Normalize phone to include country code (default 91 for India). */
+  const normalizePhone = (phone: string): string => {
+    let cleaned = phone.replace(/[\s\-\(\)\+]/g, "");
+    if (/^\d{10}$/.test(cleaned)) cleaned = "91" + cleaned;
+    return cleaned;
+  };
+
+  const openOrCreateConversation = async () => {
+    if (!currentOrg || !user || !newMsgPhone.trim()) return;
+    setNewMsgLoading(true);
+    try {
+      const phone = normalizePhone(newMsgPhone.trim());
+
+      // Check if conversation already exists
+      const { data: existing } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("org_id", currentOrg.id)
+        .eq("phone_number", phone)
+        .maybeSingle();
+
+      if (existing) {
+        setActiveId(existing.id);
+      } else {
+        // Find or create contact
+        let contactId: string;
+        const { data: existingContact } = await supabase
+          .from("contacts")
+          .select("id")
+          .eq("org_id", currentOrg.id)
+          .eq("phone_number", phone)
+          .maybeSingle();
+
+        if (existingContact) {
+          contactId = existingContact.id;
+        } else {
+          const { data: newContact, error: contactErr } = await supabase
+            .from("contacts")
+            .insert({ org_id: currentOrg.id, user_id: user.id, phone_number: phone, source: "manual" })
+            .select("id")
+            .single();
+          if (contactErr) throw contactErr;
+          contactId = newContact.id;
+        }
+
+        // Create new conversation
+        const { data: newConvo, error: convoErr } = await supabase
+          .from("conversations")
+          .insert({
+            org_id: currentOrg.id,
+            contact_id: contactId,
+            phone_number: phone,
+            status: "open",
+          })
+          .select("id")
+          .single();
+        if (convoErr) throw convoErr;
+
+        await fetchConversations();
+        setActiveId(newConvo.id);
+      }
+
+      setNewMsgPhone("");
+      setNewMsgOpen(false);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    } finally {
+      setNewMsgLoading(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -441,14 +518,49 @@ export default function Communications() {
         {/* ── Left: Conversation List ── */}
         <div className="flex w-80 flex-col border-r border-border">
           <div className="border-b border-border p-3 space-y-2">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search conversations..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search conversations..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <Dialog open={newMsgOpen} onOpenChange={setNewMsgOpen}>
+                <DialogTrigger asChild>
+                  <Button size="icon" variant="outline" className="h-9 w-9 shrink-0" title="New Message">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>New Message</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Phone Number</Label>
+                      <Input
+                        value={newMsgPhone}
+                        onChange={(e) => setNewMsgPhone(e.target.value)}
+                        placeholder="919876543210"
+                        onKeyDown={(e) => { if (e.key === "Enter") openOrCreateConversation(); }}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Include country code (e.g. 91 for India). 10-digit numbers auto-prefixed with 91.
+                      </p>
+                    </div>
+                    <Button onClick={openOrCreateConversation} disabled={!newMsgPhone.trim() || newMsgLoading} className="w-full gap-2">
+                      {newMsgLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Open Conversation
+                    </Button>
+                    <p className="text-xs text-muted-foreground text-center">
+                      Note: You can only send free replies within 24 hours of the contact's last inbound message. Otherwise, use a template via Campaigns.
+                    </p>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
             <div className="flex gap-1">
               {(["all", "open", "resolved"] as const).map((s) => (
