@@ -10,6 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { AiInsights } from "@/components/AiInsights";
@@ -47,6 +54,7 @@ import {
   Settings2,
   Sparkles,
   Loader2,
+  FileText,
 } from "lucide-react";
 
 interface Conversation {
@@ -145,6 +153,11 @@ export default function Communications() {
   const [newMsgPhone, setNewMsgPhone] = useState("");
   const [newMsgLoading, setNewMsgLoading] = useState(false);
 
+  // Template message (for expired window)
+  const [orgTemplates, setOrgTemplates] = useState<{ id: string; name: string; content: string; category: string }[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [sendingTemplate, setSendingTemplate] = useState(false);
+
   // Interactive message state
   const [replyMode, setReplyMode] = useState<"text" | "buttons" | "list">("text");
   const [replyButtons, setReplyButtons] = useState<{ id: string; title: string }[]>([
@@ -178,6 +191,13 @@ export default function Communications() {
       .select("user_id, users:user_id(email)")
       .eq("org_id", currentOrg.id)
       .then(({ data }) => setOrgMembers((data as any) ?? []));
+    supabase
+      .from("templates")
+      .select("id, name, content, category")
+      .eq("org_id", currentOrg.id)
+      .eq("status", "approved")
+      .order("name")
+      .then(({ data }) => setOrgTemplates((data as any) ?? []));
   }, [currentOrg, showCannedManager]);
 
   const filteredCanned = cannedResponses.filter((c) => {
@@ -440,6 +460,25 @@ export default function Communications() {
       toast({ variant: "destructive", title: "Error", description: err.message });
     } finally {
       setNewMsgLoading(false);
+    }
+  };
+
+  const sendTemplateMessage = async () => {
+    if (!activeId || !selectedTemplateId || sendingTemplate) return;
+    setSendingTemplate(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-template-message", {
+        body: { conversation_id: activeId, template_id: selectedTemplateId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Template message sent" });
+      setSelectedTemplateId("");
+      fetchMessages();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Send failed", description: err.message });
+    } finally {
+      setSendingTemplate(false);
     }
   };
 
@@ -770,11 +809,40 @@ export default function Communications() {
             {/* Reply Composer */}
             <div className="border-t border-border p-3">
               {window24h.expired ? (
-                <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2">
-                  <Clock className="h-4 w-4 text-destructive" />
-                  <p className="text-sm text-destructive">
-                    24-hour reply window has expired. Use a template message to re-engage.
-                  </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2">
+                    <Clock className="h-4 w-4 shrink-0 text-destructive" />
+                    <p className="text-sm text-destructive">
+                      24-hour reply window has expired. Send a template message to re-engage.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select a template..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {orgTemplates.length === 0 ? (
+                          <SelectItem value="_none" disabled>No approved templates</SelectItem>
+                        ) : (
+                          orgTemplates.map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name} ({t.category})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      onClick={sendTemplateMessage}
+                      disabled={!selectedTemplateId || sendingTemplate}
+                      className="gap-2"
+                    >
+                      {sendingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      Send
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-2">
