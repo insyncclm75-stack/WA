@@ -33,17 +33,27 @@ import {
   Building2,
   CheckCircle,
   ShieldCheck,
+  Tag,
+  Filter,
+  Bookmark,
+  Search,
+  BarChart3,
+  Code2,
+  Lock,
 } from "lucide-react";
 
 /* ── Timing ───────────────────────────────────────────── */
 
 const SCENES = [
-  { id: "intro", label: "Intro", duration: 6000 },
-  { id: "dashboard", label: "AI Analytics", duration: 13000 },
-  { id: "campaigns", label: "Campaigns", duration: 13000 },
-  { id: "communications", label: "AI Replies", duration: 14000 },
-  { id: "billing", label: "Billing", duration: 11000 },
-  { id: "outro", label: "Summary", duration: 6000 },
+  { id: "intro", label: "Intro", duration: 5000 },
+  { id: "dashboard", label: "Dashboard", duration: 12000 },
+  { id: "contacts", label: "Contacts", duration: 11000 },
+  { id: "campaigns", label: "Campaigns", duration: 12000 },
+  { id: "chatbots", label: "Chatbots", duration: 12000 },
+  { id: "communications", label: "AI Chat", duration: 13000 },
+  { id: "compliance", label: "DPDP", duration: 11000 },
+  { id: "billing", label: "Billing", duration: 10000 },
+  { id: "outro", label: "Summary", duration: 5000 },
 ] as const;
 
 const TOTAL = SCENES.reduce((s, sc) => s + sc.duration, 0);
@@ -80,10 +90,11 @@ const navItems = [
   { icon: LayoutDashboard, label: "Dashboard" },
   { icon: Users, label: "Contacts" },
   { icon: Megaphone, label: "Campaigns" },
-  { icon: FileText, label: "Templates" },
   { icon: MessageSquare, label: "Communications" },
-  { icon: Zap, label: "Automations" },
-  { icon: Settings, label: "Settings" },
+  { icon: Bot, label: "Chatbots" },
+  { icon: BarChart3, label: "Analytics" },
+  { icon: ShieldCheck, label: "Compliance" },
+  { icon: Code2, label: "Developers" },
   { icon: Wallet, label: "Billing" },
 ];
 
@@ -216,7 +227,7 @@ function MiniBarChart() {
   );
 }
 
-/* ── AI Insights widget (prominent) ───────────────────── */
+/* ── AI Insights widget ──────────────────────────────── */
 
 function AiInsights() {
   const [text, setText] = useState("");
@@ -260,7 +271,102 @@ function AiInsights() {
   );
 }
 
-/* ── Scene: Dashboard (AI Analytics focus) ────────────── */
+/* ── Typewriter ───────────────────────────────────────── */
+
+function TypewriterText({ text, delay = 0, speed = 30 }: { text: string; delay?: number; speed?: number }) {
+  const [shown, setShown] = useState("");
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      let i = 0;
+      const interval = setInterval(() => {
+        if (i <= text.length) { setShown(text.slice(0, i)); i++; } else clearInterval(interval);
+      }, speed);
+      return () => clearInterval(interval);
+    }, delay * 1000);
+    return () => clearTimeout(timeout);
+  }, [text, delay, speed]);
+  return <>{shown}<motion.span animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }} className="inline-block w-0.5 h-4 bg-primary ml-0.5 align-middle" /></>;
+}
+
+/* ── Flow connector for chatbot builder ───────────────── */
+
+function FlowLine() {
+  return (
+    <motion.div
+      initial={{ scaleY: 0 }}
+      animate={{ scaleY: 1 }}
+      transition={{ duration: 0.3 }}
+      className="h-5 w-px bg-border/60"
+      style={{ transformOrigin: "top" }}
+    />
+  );
+}
+
+/* ── Scene: Intro ─────────────────────────────────────── */
+
+function SceneIntro() {
+  return (
+    <motion.div {...fade} className="flex h-full flex-col items-center justify-center bg-background">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute top-1/3 left-1/4 h-[400px] w-[400px] rounded-full bg-primary/10 blur-[120px]" />
+        <div className="absolute bottom-1/3 right-1/4 h-[300px] w-[300px] rounded-full bg-emerald-500/8 blur-[100px]" />
+      </div>
+
+      <motion.div
+        initial={{ scale: 0.5, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, type: "spring" }}
+        className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-primary shadow-2xl shadow-primary/30"
+      >
+        <MessageCircle className="h-12 w-12 text-primary-foreground" />
+      </motion.div>
+
+      <motion.h1
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.5 }}
+        className="relative text-5xl font-extrabold tracking-tight text-foreground"
+      >
+        In-Sync
+      </motion.h1>
+
+      <motion.p
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.6, duration: 0.5 }}
+        className="relative mt-3 text-lg text-muted-foreground"
+      >
+        AI-Powered, Self-Serve WhatsApp Platform
+      </motion.p>
+
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1.2, duration: 0.5 }}
+        className="relative mt-8 flex items-center gap-4"
+      >
+        {[
+          { icon: Sparkles, label: "AI-Powered" },
+          { icon: ShieldCheck, label: "DPDP Compliant" },
+          { icon: Rocket, label: "100% Self-Serve" },
+          { icon: Code2, label: "Developer API" },
+        ].map((p, i) => (
+          <motion.div
+            key={p.label}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 1.4 + i * 0.15 }}
+            className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary"
+          >
+            <p.icon className="h-3 w-3" /> {p.label}
+          </motion.div>
+        ))}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ── Scene: Dashboard ─────────────────────────────────── */
 
 function SceneDashboard() {
   return (
@@ -293,7 +399,6 @@ function SceneDashboard() {
           <div className="col-span-2">
             <MiniBarChart />
           </div>
-          {/* AI Insights takes the right column */}
           <AiInsights />
         </div>
       </div>
@@ -301,7 +406,145 @@ function SceneDashboard() {
   );
 }
 
-/* ── Scene: Campaigns (billing clarity) ───────────────── */
+/* ── Scene: Contacts & Segments (NEW) ─────────────────── */
+
+function SceneContacts() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStep(1), 1500),
+      setTimeout(() => setStep(2), 3500),
+      setTimeout(() => setStep(3), 5500),
+      setTimeout(() => setStep(4), 7500),
+      setTimeout(() => setStep(5), 9000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const allContacts = [
+    { name: "Amit Sharma", phone: "+91 97XX XXX 680", tags: ["VIP", "Active"], source: "Campaign" },
+    { name: "Priya Patel", phone: "+91 98XX XXX 412", tags: ["VIP"], source: "Manual" },
+    { name: "Raj Kumar", phone: "+91 87XX XXX 901", tags: ["New"], source: "CSV" },
+    { name: "Sneha Iyer", phone: "+91 96XX XXX 234", tags: ["VIP", "Enterprise"], source: "CTWA" },
+    { name: "Vikram Desai", phone: "+91 99XX XXX 567", tags: ["Active"], source: "Inbound" },
+  ];
+
+  const contacts = step >= 2 ? allContacts.filter((c) => c.tags.includes("VIP")) : allContacts;
+
+  return (
+    <motion.div {...fade} className="flex h-full">
+      <MockSidebar active="Contacts" />
+      <div className="flex-1 overflow-hidden p-5">
+        <motion.div {...slideUp(0)} className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Contacts</h2>
+            <p className="text-xs text-muted-foreground">Manage, segment, and target your audience</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <motion.div {...slideLeft(0.3)} className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-[10px] text-muted-foreground">
+              <Search className="h-3 w-3" /> Search contacts...
+            </motion.div>
+            <motion.div {...slideLeft(0.4)} className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-foreground">
+              <UserPlus className="h-3 w-3" /> Add
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Filter row */}
+        <motion.div {...slideUp(0.15)} className="mt-3 flex items-center gap-2">
+          <div className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] transition-colors ${
+            step >= 2 ? "border-primary/50 bg-primary/5 text-primary font-medium" : "border-border bg-background text-muted-foreground"
+          }`}>
+            <Tag className="h-3 w-3" /> {step >= 2 ? "Tag: VIP" : "Filter by Tag"}
+          </div>
+          <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[10px] text-muted-foreground">
+            <Filter className="h-3 w-3" /> Source: All
+          </div>
+          {step >= 2 && (
+            <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+              className="rounded-full bg-primary/10 px-2.5 py-0.5 text-[9px] font-medium text-primary">
+              {contacts.length} matches
+            </motion.span>
+          )}
+
+          <AnimatePresence>
+            {step >= 3 && step < 4 && (
+              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+                className="ml-auto flex items-center gap-2 rounded-lg border border-primary/30 bg-card p-2 shadow-lg">
+                <div className="rounded border border-border bg-background px-2 py-1 text-[10px] text-foreground">VIP Customers</div>
+                <div className="flex items-center gap-1 rounded bg-primary px-2 py-1 text-[9px] font-semibold text-primary-foreground">
+                  <Bookmark className="h-2.5 w-2.5" /> Save
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {step >= 4 && (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+              className="ml-auto flex items-center gap-1.5 text-[10px] font-medium text-emerald-600">
+              <CheckCircle className="h-3.5 w-3.5" /> Segment "VIP Customers" saved
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Contact table */}
+        <motion.div {...slideUp(0.25)} className="mt-3 overflow-hidden rounded-xl border border-border/60 bg-card">
+          <div className="flex items-center border-b border-border/40 bg-muted/30 px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {step >= 5 && <div className="w-6 shrink-0" />}
+            <div className="flex-[2]">Name</div>
+            <div className="flex-[2]">Phone</div>
+            <div className="flex-[2]">Tags</div>
+            <div className="flex-1">Source</div>
+          </div>
+          <div className="divide-y divide-border/30">
+            {contacts.map((c, i) => (
+              <motion.div key={c.name}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0, transition: { delay: 0.35 + i * 0.08 } }}
+                className="flex items-center px-4 py-2">
+                {step >= 5 && (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-6 shrink-0">
+                    <div className="h-3.5 w-3.5 rounded border-2 border-primary bg-primary/20" />
+                  </motion.div>
+                )}
+                <div className="flex flex-[2] items-center gap-2">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[9px] font-bold text-primary">
+                    {c.name.split(" ").map((n) => n[0]).join("")}
+                  </div>
+                  <span className="text-xs font-medium text-foreground">{c.name}</span>
+                </div>
+                <span className="flex-[2] text-xs text-muted-foreground">{c.phone}</span>
+                <div className="flex flex-[2] gap-1">
+                  {c.tags.map((t) => (
+                    <span key={t} className="rounded-full bg-primary/10 px-2 py-0.5 text-[8px] font-medium text-primary">{t}</span>
+                  ))}
+                </div>
+                <span className="flex-1">
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-medium text-muted-foreground">{c.source}</span>
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Bulk action */}
+        <AnimatePresence>
+          {step >= 5 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="mt-3 flex items-center justify-between rounded-xl border-2 border-primary/30 bg-primary/5 p-3">
+              <span className="text-xs text-muted-foreground"><strong className="text-foreground">{contacts.length}</strong> contacts selected</span>
+              <div className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-foreground">
+                <Megaphone className="h-3 w-3" /> Launch Campaign ({contacts.length})
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Scene: Campaigns ─────────────────────────────────── */
 
 function SceneCampaigns() {
   const [step, setStep] = useState(0);
@@ -386,7 +629,7 @@ function SceneCampaigns() {
               )}
             </AnimatePresence>
 
-            {/* Launch bar — with transparent billing */}
+            {/* Launch bar */}
             <AnimatePresence>
               {step >= 4 && (
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
@@ -461,7 +704,177 @@ function SceneCampaigns() {
   );
 }
 
-/* ── Scene: Communications (AI Auto-Reply focus) ──────── */
+/* ── Scene: Visual Chatbot Builder (NEW) ──────────────── */
+
+function SceneChatbots() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStep(1), 1200),
+      setTimeout(() => setStep(2), 2800),
+      setTimeout(() => setStep(3), 4500),
+      setTimeout(() => setStep(4), 6500),
+      setTimeout(() => setStep(5), 8500),
+      setTimeout(() => setStep(6), 10500),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  const nodeTypes = [
+    { label: "Send Message", color: "bg-blue-500" },
+    { label: "Buttons", color: "bg-purple-500" },
+    { label: "List Menu", color: "bg-indigo-500" },
+    { label: "Wait Reply", color: "bg-yellow-500" },
+    { label: "Condition", color: "bg-orange-500" },
+    { label: "Set Variable", color: "bg-teal-500" },
+    { label: "Assign Agent", color: "bg-cyan-500" },
+    { label: "Close Chat", color: "bg-red-500" },
+  ];
+
+  return (
+    <motion.div {...fade} className="flex h-full">
+      <MockSidebar active="Chatbots" />
+      <div className="flex flex-1 overflow-hidden">
+        {/* Node palette */}
+        <motion.div {...slideRight(0.1)} className="w-32 shrink-0 border-r border-border/60 bg-muted/20 p-3">
+          <p className="mb-2 text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">Drag to add</p>
+          <div className="space-y-1">
+            {nodeTypes.map((n, i) => (
+              <motion.div key={n.label}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0, transition: { delay: 0.15 + i * 0.05 } }}
+                className="flex items-center gap-1.5 rounded-md border border-border/40 bg-card px-2 py-1 text-[9px] font-medium text-foreground">
+                <span className={`h-1.5 w-1.5 rounded-sm ${n.color}`} />
+                {n.label}
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Canvas */}
+        <div className="flex-1 p-4">
+          <motion.div {...slideUp(0)} className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="h-4 w-4 text-primary" />
+              <span className="text-base font-bold text-foreground">Welcome Bot</span>
+              {step >= 6 && (
+                <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">
+                  Active
+                </motion.span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {step >= 5 && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                  <span>Sessions: <strong className="text-foreground">1,247</strong></span>
+                  <span>Completion: <strong className="text-emerald-600">89%</strong></span>
+                </motion.div>
+              )}
+              <div className="rounded-lg bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-foreground">Save</div>
+            </div>
+          </motion.div>
+
+          {/* Flow canvas area */}
+          <div className="relative overflow-hidden rounded-xl border border-border/40 bg-background/50" style={{ height: 310 }}>
+            {/* Dot grid background */}
+            <div className="absolute inset-0 opacity-[0.04]"
+              style={{ backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)", backgroundSize: "16px 16px" }} />
+
+            <div className="relative flex flex-col items-center gap-0 py-4">
+              {/* Trigger node */}
+              {step >= 1 && (
+                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-lg border-2 border-emerald-300 bg-emerald-50 px-4 py-2 shadow-sm">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="h-3.5 w-3.5 text-emerald-600" />
+                    <span className="text-[10px] font-semibold text-foreground">Trigger</span>
+                  </div>
+                  <p className="mt-0.5 text-[9px] text-muted-foreground">Keyword: "hello"</p>
+                </motion.div>
+              )}
+
+              {step >= 2 && <FlowLine />}
+
+              {/* Send Message node */}
+              {step >= 2 && (
+                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-lg border-2 border-blue-300 bg-blue-50 px-4 py-2 shadow-sm">
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="h-3.5 w-3.5 text-blue-600" />
+                    <span className="text-[10px] font-semibold text-foreground">Send Message</span>
+                  </div>
+                  <p className="mt-0.5 max-w-[180px] text-[9px] text-muted-foreground">Welcome! How can I help? 👋</p>
+                </motion.div>
+              )}
+
+              {step >= 3 && <FlowLine />}
+
+              {/* Buttons node */}
+              {step >= 3 && (
+                <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+                  className="rounded-lg border-2 border-purple-300 bg-purple-50 px-4 py-2 shadow-sm">
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="h-3.5 w-3.5 text-purple-600" />
+                    <span className="text-[10px] font-semibold text-foreground">Reply Buttons</span>
+                  </div>
+                  <div className="mt-1 flex gap-1">
+                    {["Products", "Support", "Pricing"].map((b) => (
+                      <span key={b} className="rounded bg-purple-100 px-1.5 py-0.5 text-[7px] font-medium text-purple-700">{b}</span>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Branch nodes */}
+              {step >= 4 && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col items-center">
+                  <div className="h-3 w-px bg-border/60" />
+                  <div className="h-px bg-border/60" style={{ width: 220 }} />
+                  <div className="flex gap-6">
+                    {[
+                      { title: "Send Catalog", color: "border-blue-200 bg-blue-50", iconColor: "text-blue-500" },
+                      { title: "Assign Agent", color: "border-cyan-200 bg-cyan-50", iconColor: "text-cyan-500" },
+                      { title: "Send Pricing", color: "border-blue-200 bg-blue-50", iconColor: "text-blue-500" },
+                    ].map((node) => (
+                      <div key={node.title} className="flex flex-col items-center">
+                        <div className="h-3 w-px bg-border/60" />
+                        <div className={`rounded-lg border-2 ${node.color} px-2 py-1 shadow-sm`}>
+                          <div className="flex items-center gap-1">
+                            <MessageSquare className={`h-2.5 w-2.5 ${node.iconColor}`} />
+                            <span className="text-[8px] font-semibold text-foreground">{node.title}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </div>
+
+            {/* Mini-map */}
+            <div className="absolute bottom-2 right-2 rounded border border-border/30 bg-card/80 p-1.5 backdrop-blur-sm">
+              <div className="flex h-10 w-14 flex-col items-center justify-center gap-0.5 rounded bg-muted/50">
+                <div className="h-1 w-3 rounded-sm bg-emerald-400" />
+                <div className="h-1 w-3 rounded-sm bg-blue-400" />
+                <div className="h-1 w-3 rounded-sm bg-purple-400" />
+                <div className="flex gap-1">
+                  <div className="h-0.5 w-1.5 rounded-sm bg-blue-300" />
+                  <div className="h-0.5 w-1.5 rounded-sm bg-cyan-300" />
+                  <div className="h-0.5 w-1.5 rounded-sm bg-blue-300" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Scene: Communications (AI Auto-Reply) ────────────── */
 
 const chatMessages: { dir: string; text: string; time: string; status?: string; isAi?: boolean }[] = [
   { dir: "out", text: "Hi Amit! 🎉\n\nGet 20% OFF on all services this March!\n\nUse code: MARCH20", time: "10:30 AM", status: "read" },
@@ -477,19 +890,12 @@ function SceneCommunications() {
 
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = [];
-    // Msg 1 (campaign outbound)
     timers.push(setTimeout(() => setVisibleMsgs(1), 1000));
-    // Msg 2 (customer replies)
     timers.push(setTimeout(() => setVisibleMsgs(2), 3000));
-    // AI typing indicator
     timers.push(setTimeout(() => setShowTyping(true), 4500));
-    // Msg 3 (AI auto-reply)
     timers.push(setTimeout(() => { setShowTyping(false); setVisibleMsgs(3); }, 6000));
-    // Msg 4 (customer)
     timers.push(setTimeout(() => setVisibleMsgs(4), 8500));
-    // AI typing
     timers.push(setTimeout(() => setShowTyping(true), 10000));
-    // Msg 5 (AI auto-reply)
     timers.push(setTimeout(() => { setShowTyping(false); setVisibleMsgs(5); }, 11500));
     return () => timers.forEach(clearTimeout);
   }, []);
@@ -542,7 +948,6 @@ function SceneCommunications() {
 
         {/* Chat area */}
         <div className="flex flex-1 flex-col">
-          {/* Header */}
           <motion.div {...slideUp(0.15)} className="flex items-center justify-between border-b border-border/60 px-4 py-2">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
@@ -559,7 +964,7 @@ function SceneCommunications() {
               </span>
               <div className="flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1">
                 <Bot className="h-3.5 w-3.5 text-primary" />
-                <div className="h-4 w-7 rounded-full bg-primary relative">
+                <div className="relative h-4 w-7 rounded-full bg-primary">
                   <div className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full bg-primary-foreground" />
                 </div>
                 <span className="text-[10px] font-semibold text-primary">AI ON</span>
@@ -579,7 +984,6 @@ function SceneCommunications() {
                   className={`flex ${msg.dir === "out" ? "justify-end" : "justify-start"}`}
                 >
                   <div className="max-w-[65%]">
-                    {/* AI badge for auto-replies */}
                     {msg.isAi && (
                       <div className="mb-0.5 flex items-center justify-end gap-1 text-[8px] font-semibold text-primary">
                         <Bot className="h-2.5 w-2.5" /> AI Auto-Reply
@@ -609,32 +1013,19 @@ function SceneCommunications() {
               ))}
             </AnimatePresence>
 
-            {/* AI typing indicator */}
             <AnimatePresence>
               {showTyping && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="flex justify-end"
-                >
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex justify-end">
                   <div className="flex items-center gap-2 rounded-lg rounded-tr-none bg-primary/10 px-3 py-2">
                     <Bot className="h-3 w-3 text-primary" />
                     <span className="text-[10px] font-medium text-primary">AI is composing</span>
-                    <motion.span
-                      animate={{ opacity: [0.3, 1, 0.3] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                      className="text-primary"
-                    >
-                      ···
-                    </motion.span>
+                    <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 1, repeat: Infinity }} className="text-primary">···</motion.span>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Composer */}
           <motion.div {...slideUp(0.3)} className="flex items-center gap-2 border-t border-border/60 bg-card px-4 py-2.5">
             <div className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-[10px] text-muted-foreground">
               AI is handling this conversation...
@@ -649,7 +1040,168 @@ function SceneCommunications() {
   );
 }
 
-/* ── Scene: Billing (transparent self-serve) ──────────── */
+/* ── Scene: DPDP Compliance (NEW) ─────────────────────── */
+
+function SceneCompliance() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStep(1), 1500),
+      setTimeout(() => setStep(2), 3500),
+      setTimeout(() => setStep(3), 5500),
+      setTimeout(() => setStep(4), 7500),
+      setTimeout(() => setStep(5), 9000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <motion.div {...fade} className="flex h-full">
+      <MockSidebar active="Compliance" />
+      <div className="flex-1 overflow-hidden p-5">
+        <motion.div {...slideUp(0)} className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">DPDP Compliance</h2>
+              <p className="text-xs text-muted-foreground">Digital Personal Data Protection Act 2023</p>
+            </div>
+          </div>
+          <motion.span initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 }}
+            className="rounded-full bg-emerald-100 px-3 py-1 text-[10px] font-semibold text-emerald-700">
+            ✓ DPDP Enabled
+          </motion.span>
+        </motion.div>
+
+        {/* Encryption status */}
+        <AnimatePresence>
+          {step >= 1 && (
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              className="mt-4 rounded-xl border-2 border-emerald-200 bg-gradient-to-r from-emerald-50 to-emerald-50/30 p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100">
+                    <Lock className="h-5 w-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">AES-256 Encryption Active</p>
+                    <p className="text-[10px] text-muted-foreground">Key set on Mar 1, 2026 · Hint: ••••k3y9</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-emerald-600">100%</p>
+                  <p className="text-[9px] text-muted-foreground">Contacts Encrypted</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Stats grid */}
+        <AnimatePresence>
+          {step >= 2 && (
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              className="mt-3 grid grid-cols-4 gap-3">
+              {[
+                { label: "Encrypted Contacts", value: "1,204", color: "text-emerald-600", sub: "100% coverage" },
+                { label: "Active Consents", value: "1,148", color: "text-blue-600", sub: "95.3% consent rate" },
+                { label: "Data Requests", value: "3", color: "text-amber-600", sub: "2 pending" },
+                { label: "PII Access Events", value: "847", color: "text-violet-600", sub: "All audited" },
+              ].map((stat, i) => (
+                <motion.div key={stat.label}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0, transition: { delay: i * 0.1 } }}
+                  className="rounded-xl border border-border/60 bg-card p-3">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">{stat.label}</p>
+                  <p className={`mt-1 text-xl font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="mt-0.5 text-[9px] text-muted-foreground">{stat.sub}</p>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Consents & Data requests side by side */}
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <AnimatePresence>
+            {step >= 3 && (
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-border/60 bg-card p-3">
+                <p className="mb-2 text-xs font-semibold text-foreground">Recent Consents</p>
+                <div className="space-y-1.5">
+                  {[
+                    { user: "+91 97XX...680", purpose: "Marketing communications", status: "Active" },
+                    { user: "+91 98XX...412", purpose: "Service notifications", status: "Active" },
+                    { user: "+91 87XX...901", purpose: "Marketing communications", status: "Withdrawn" },
+                  ].map((c, i) => (
+                    <motion.div key={i}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1, transition: { delay: i * 0.15 } }}
+                      className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                      <div>
+                        <p className="text-[10px] font-medium text-foreground">{c.user}</p>
+                        <p className="text-[8px] text-muted-foreground">{c.purpose}</p>
+                      </div>
+                      <span className={`rounded-full px-2 py-0.5 text-[8px] font-medium ${
+                        c.status === "Active" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                      }`}>{c.status}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {step >= 4 && (
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl border border-border/60 bg-card p-3">
+                <p className="mb-2 text-xs font-semibold text-foreground">Data Subject Requests</p>
+                <div className="space-y-1.5">
+                  {[
+                    { type: "Erasure", status: "Pending", due: "Mar 15" },
+                    { type: "Access", status: "Completed", due: "Mar 10" },
+                    { type: "Correction", status: "Pending", due: "Mar 18" },
+                  ].map((r, i) => (
+                    <motion.div key={i}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1, transition: { delay: i * 0.15 } }}
+                      className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded px-1.5 py-0.5 text-[8px] font-semibold ${
+                          r.type === "Erasure" ? "bg-red-100 text-red-700" :
+                          r.type === "Access" ? "bg-blue-100 text-blue-700" :
+                          "bg-amber-100 text-amber-700"
+                        }`}>{r.type}</span>
+                        <span className="text-[9px] text-muted-foreground">Due: {r.due}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[8px] font-medium ${
+                          r.status === "Completed" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"
+                        }`}>{r.status}</span>
+                        {r.status === "Pending" && step >= 5 && (
+                          <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                            className="rounded bg-primary px-2 py-0.5 text-[8px] font-semibold text-primary-foreground">
+                            Process
+                          </motion.span>
+                        )}
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+/* ── Scene: Billing ───────────────────────────────────── */
 
 function SceneBilling() {
   const [step, setStep] = useState(0);
@@ -678,7 +1230,7 @@ function SceneBilling() {
         <div className="mt-4 grid grid-cols-3 gap-3">
           {/* Wallet balance */}
           <motion.div {...slideUp(0.2)} className="col-span-1 rounded-xl border-2 border-primary/30 bg-gradient-to-br from-primary/5 to-primary/[0.02] p-5">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="mb-3 flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15">
                 <Wallet className="h-4 w-4 text-primary" />
               </div>
@@ -686,16 +1238,13 @@ function SceneBilling() {
             </div>
             <AnimatedValue value="₹2,340.00" delay={0.5} />
             <div className="mt-3 space-y-1 text-[10px] text-muted-foreground">
-              <div className="flex justify-between"><span>Total credited</span><span className="text-foreground font-medium">₹5,100.00</span></div>
-              <div className="flex justify-between"><span>Total spent</span><span className="text-foreground font-medium">₹2,760.00</span></div>
+              <div className="flex justify-between"><span>Total credited</span><span className="font-medium text-foreground">₹5,100.00</span></div>
+              <div className="flex justify-between"><span>Total spent</span><span className="font-medium text-foreground">₹2,760.00</span></div>
             </div>
             <AnimatePresence>
               {step >= 1 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground"
-                >
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground">
                   <CreditCard className="h-3.5 w-3.5" /> Add Funds via Razorpay
                 </motion.div>
               )}
@@ -704,7 +1253,7 @@ function SceneBilling() {
 
           {/* Pricing table */}
           <motion.div {...slideUp(0.35)} className="col-span-2 rounded-xl border border-border/60 bg-card p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Receipt className="h-4 w-4 text-muted-foreground" />
                 <span className="text-xs font-semibold text-foreground">Transparent Per-Message Pricing</span>
@@ -717,12 +1266,10 @@ function SceneBilling() {
                 { type: "Utility", rate: "₹0.20", color: "bg-sky-500", desc: "Order updates, reminders, alerts" },
                 { type: "Authentication", rate: "₹0.20", color: "bg-violet-500", desc: "OTPs, verification codes" },
               ].map((p, i) => (
-                <motion.div
-                  key={p.type}
+                <motion.div key={p.type}
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0, transition: { delay: 0.5 + i * 0.15 } }}
-                  className="flex items-center gap-3 rounded-lg border border-border/40 bg-background p-3"
-                >
+                  className="flex items-center gap-3 rounded-lg border border-border/40 bg-background p-3">
                   <span className={`h-2.5 w-2.5 rounded-full ${p.color}`} />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-foreground">{p.type}</p>
@@ -734,8 +1281,7 @@ function SceneBilling() {
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0, transition: { delay: 0.95 } }}
-                className="flex items-center gap-3 rounded-lg border border-border/40 bg-background p-3"
-              >
+                className="flex items-center gap-3 rounded-lg border border-border/40 bg-background p-3">
                 <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">Platform Fee</p>
@@ -750,11 +1296,8 @@ function SceneBilling() {
         {/* Recent transactions */}
         <AnimatePresence>
           {step >= 2 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 rounded-xl border border-border/60 bg-card p-4"
-            >
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+              className="mt-4 rounded-xl border border-border/60 bg-card p-4">
               <p className="mb-3 text-xs font-semibold text-foreground">Recent Transactions</p>
               <div className="space-y-1.5">
                 {[
@@ -763,12 +1306,10 @@ function SceneBilling() {
                   { desc: "Welcome bonus — free test balance", amount: "+₹100.00", type: "credit", time: "2 days ago" },
                   { desc: "Campaign: Feb Newsletter — 523 msgs", amount: "-₹523.00", type: "debit", time: "5 days ago" },
                 ].map((tx, i) => (
-                  <motion.div
-                    key={i}
+                  <motion.div key={i}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1, transition: { delay: i * 0.2 } }}
-                    className="flex items-center justify-between rounded-lg bg-background px-3 py-2"
-                  >
+                    className="flex items-center justify-between rounded-lg bg-background px-3 py-2">
                     <div className="flex items-center gap-2">
                       <div className={`h-1.5 w-1.5 rounded-full ${tx.type === "credit" ? "bg-emerald-500" : "bg-red-400"}`} />
                       <span className="text-[11px] text-foreground">{tx.desc}</span>
@@ -784,87 +1325,6 @@ function SceneBilling() {
           )}
         </AnimatePresence>
       </div>
-    </motion.div>
-  );
-}
-
-/* ── Typewriter ───────────────────────────────────────── */
-
-function TypewriterText({ text, delay = 0, speed = 30 }: { text: string; delay?: number; speed?: number }) {
-  const [shown, setShown] = useState("");
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      let i = 0;
-      const interval = setInterval(() => {
-        if (i <= text.length) { setShown(text.slice(0, i)); i++; } else clearInterval(interval);
-      }, speed);
-      return () => clearInterval(interval);
-    }, delay * 1000);
-    return () => clearTimeout(timeout);
-  }, [text, delay, speed]);
-  return <>{shown}<motion.span animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }} className="inline-block w-0.5 h-4 bg-primary ml-0.5 align-middle" /></>;
-}
-
-/* ── Scene: Intro ─────────────────────────────────────── */
-
-function SceneIntro() {
-  return (
-    <motion.div {...fade} className="flex h-full flex-col items-center justify-center bg-background">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/3 left-1/4 h-[400px] w-[400px] rounded-full bg-primary/10 blur-[120px]" />
-        <div className="absolute bottom-1/3 right-1/4 h-[300px] w-[300px] rounded-full bg-emerald-500/8 blur-[100px]" />
-      </div>
-
-      <motion.div
-        initial={{ scale: 0.5, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.6, type: "spring" }}
-        className="relative mb-8 flex h-24 w-24 items-center justify-center rounded-3xl bg-primary shadow-2xl shadow-primary/30"
-      >
-        <MessageCircle className="h-12 w-12 text-primary-foreground" />
-      </motion.div>
-
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.5 }}
-        className="relative text-5xl font-extrabold tracking-tight text-foreground"
-      >
-        In-Sync
-      </motion.h1>
-
-      <motion.p
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6, duration: 0.5 }}
-        className="relative mt-3 text-lg text-muted-foreground"
-      >
-        AI-Powered, Self-Serve WhatsApp Platform
-      </motion.p>
-
-      {/* Three pillars */}
-      <motion.div
-        initial={{ opacity: 0, y: 15 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.2, duration: 0.5 }}
-        className="relative mt-8 flex items-center gap-6"
-      >
-        {[
-          { icon: Sparkles, label: "AI-Powered" },
-          { icon: IndianRupee, label: "Transparent Billing" },
-          { icon: Rocket, label: "100% Self-Serve" },
-        ].map((p, i) => (
-          <motion.div
-            key={p.label}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.4 + i * 0.2 }}
-            className="flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-xs font-medium text-primary"
-          >
-            <p.icon className="h-3 w-3" /> {p.label}
-          </motion.div>
-        ))}
-      </motion.div>
     </motion.div>
   );
 }
@@ -890,26 +1350,29 @@ function SceneOutro() {
       <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="relative mt-8 grid grid-cols-3 gap-6"
+        transition={{ delay: 0.5 }}
+        className="relative mt-8 grid grid-cols-3 gap-4"
       >
         {[
-          { icon: Sparkles, title: "AI-Powered", desc: "Auto-replies to customers, AI-generated campaign insights & analytics" },
-          { icon: IndianRupee, title: "Transparent Billing", desc: "Per-message pricing, real-time wallet, self-serve top-ups via Razorpay" },
-          { icon: UserPlus, title: "100% Self-Serve", desc: "Create org, onboard, import contacts, launch campaigns — no human needed" },
+          { icon: Sparkles, title: "AI-Powered", desc: "Auto-replies, smart insights, and campaign analytics powered by AI" },
+          { icon: Bot, title: "Chatbot Builder", desc: "Visual drag-and-drop flow editor with 8 node types — no coding needed" },
+          { icon: Users, title: "Contact Segments", desc: "Filter, tag, and save audiences for precise campaign targeting" },
+          { icon: ShieldCheck, title: "DPDP Compliance", desc: "AES-256 encryption, consent tracking, data subject rights management" },
+          { icon: IndianRupee, title: "Transparent Billing", desc: "Per-message pricing, real-time wallet, self-serve Razorpay top-ups" },
+          { icon: Code2, title: "Developer API", desc: "REST API, webhooks, and API key management for seamless integrations" },
         ].map((p, i) => (
           <motion.div
             key={p.title}
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 + i * 0.2 }}
-            className="relative rounded-xl border border-border/60 bg-card p-5 text-center"
+            transition={{ delay: 0.7 + i * 0.1 }}
+            className="relative rounded-xl border border-border/60 bg-card p-4 text-center"
           >
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <p.icon className="h-5 w-5 text-primary" />
+            <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10">
+              <p.icon className="h-4 w-4 text-primary" />
             </div>
             <p className="text-sm font-bold text-foreground">{p.title}</p>
-            <p className="mt-1.5 text-[11px] leading-relaxed text-muted-foreground">{p.desc}</p>
+            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{p.desc}</p>
           </motion.div>
         ))}
       </motion.div>
@@ -972,8 +1435,11 @@ export default function Demo() {
     switch (currentScene.id) {
       case "intro": return <SceneIntro />;
       case "dashboard": return <SceneDashboard />;
+      case "contacts": return <SceneContacts />;
       case "campaigns": return <SceneCampaigns />;
+      case "chatbots": return <SceneChatbots />;
       case "communications": return <SceneCommunications />;
+      case "compliance": return <SceneCompliance />;
       case "billing": return <SceneBilling />;
       case "outro": return <SceneOutro />;
     }
