@@ -40,6 +40,10 @@ import {
   BarChart3,
   Code2,
   Lock,
+  GitBranch,
+  Key,
+  Copy,
+  Webhook,
 } from "lucide-react";
 
 /* ── Timing ───────────────────────────────────────────── */
@@ -49,8 +53,10 @@ const SCENES = [
   { id: "dashboard", label: "Dashboard", duration: 12000 },
   { id: "contacts", label: "Contacts", duration: 11000 },
   { id: "campaigns", label: "Campaigns", duration: 12000 },
+  { id: "automations", label: "Drips", duration: 11000 },
   { id: "chatbots", label: "Chatbots", duration: 12000 },
   { id: "communications", label: "AI Chat", duration: 13000 },
+  { id: "developers", label: "API", duration: 11000 },
   { id: "compliance", label: "DPDP", duration: 11000 },
   { id: "billing", label: "Billing", duration: 10000 },
   { id: "outro", label: "Summary", duration: 5000 },
@@ -92,6 +98,7 @@ const navItems = [
   { icon: Megaphone, label: "Campaigns" },
   { icon: MessageSquare, label: "Communications" },
   { icon: Bot, label: "Chatbots" },
+  { icon: Zap, label: "Automations" },
   { icon: BarChart3, label: "Analytics" },
   { icon: ShieldCheck, label: "Compliance" },
   { icon: Code2, label: "Developers" },
@@ -704,6 +711,184 @@ function SceneCampaigns() {
   );
 }
 
+/* ── Scene: Automations / Drip Campaigns (NEW) ────────── */
+
+function SceneAutomations() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStep(1), 1200),
+      setTimeout(() => setStep(2), 3000),
+      setTimeout(() => setStep(3), 5000),
+      setTimeout(() => setStep(4), 7000),
+      setTimeout(() => setStep(5), 9000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <motion.div {...fade} className="flex h-full">
+      <MockSidebar active="Automations" />
+      <div className="flex-1 overflow-hidden p-5">
+        <motion.div {...slideUp(0)} className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Automations</h2>
+            <p className="text-xs text-muted-foreground">Drip campaigns with daily limits and response-based branching</p>
+          </div>
+          <motion.div {...slideLeft(0.3)}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[10px] font-semibold text-primary-foreground">
+            <Zap className="h-3 w-3" /> New Automation
+          </motion.div>
+        </motion.div>
+
+        {/* Automation card */}
+        <motion.div {...slideUp(0.2)} className="mt-4 rounded-xl border border-border/60 bg-card overflow-hidden">
+          <div className="flex items-center gap-4 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+              <Zap className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-foreground">Welcome Drip Series</span>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">Active</span>
+              </div>
+              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                327/547 contacts processed · 10/day limit · Created Mar 5
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] text-muted-foreground">
+                <Pause className="h-3 w-3" /> Pause
+              </div>
+            </div>
+          </div>
+
+          {/* Expanded: Steps flow */}
+          <AnimatePresence>
+            {step >= 1 && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                className="border-t border-border/40 bg-muted/20 px-5 py-4">
+
+                {/* Contact status breakdown */}
+                <AnimatePresence>
+                  {step >= 2 && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="mb-4 grid grid-cols-5 gap-2">
+                      {[
+                        { label: "Pending", value: "200", color: "text-muted-foreground" },
+                        { label: "In Progress", value: "47", color: "text-blue-600" },
+                        { label: "Waiting", value: "32", color: "text-amber-600" },
+                        { label: "Completed", value: "248", color: "text-emerald-600" },
+                        { label: "Failed", value: "20", color: "text-red-500" },
+                      ].map((stat, i) => (
+                        <motion.div key={stat.label}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0, transition: { delay: i * 0.08 } }}
+                          className="rounded-lg border border-border/40 bg-background p-2 text-center">
+                          <p className={`text-lg font-bold ${stat.color}`}>{stat.value}</p>
+                          <p className="text-[8px] text-muted-foreground">{stat.label}</p>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <p className="mb-2 text-[10px] font-semibold text-foreground">Steps</p>
+                <div className="space-y-0">
+                  {[
+                    { order: 1, icon: Send, type: "Send Template", detail: "welcome_offer", color: "text-blue-600" },
+                    { order: 2, icon: Clock, type: "Wait", detail: "24 hours", color: "text-amber-600" },
+                    { order: 3, icon: GitBranch, type: "Condition", detail: "Read → Step 4 · No Response → Step 5", color: "text-orange-600" },
+                    { order: 4, icon: Send, type: "Send Template", detail: "product_catalog", color: "text-blue-600" },
+                    { order: 5, icon: Send, type: "Send Template", detail: "reminder_followup", color: "text-blue-600" },
+                  ].map((s, i) => (
+                    <motion.div key={s.order}
+                      initial={{ opacity: 0, x: -15 }}
+                      animate={{ opacity: 1, x: 0, transition: { delay: 0.1 + i * 0.12 } }}
+                      className="flex items-start gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-[10px] font-bold text-primary">
+                          {s.order}
+                        </span>
+                        {i < 4 && <div className="my-0.5 h-4 w-px bg-border/60" />}
+                      </div>
+                      <div className="flex items-center gap-2 rounded-md border border-border/40 bg-background px-3 py-1.5 text-[10px]">
+                        <s.icon className={`h-3.5 w-3.5 ${s.color}`} />
+                        <span className="font-medium text-foreground">{s.type}:</span>
+                        <span className="text-muted-foreground">{s.detail}</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Progress bar */}
+                <AnimatePresence>
+                  {step >= 3 && (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4">
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                        <span>Progress</span>
+                        <span className="font-medium text-foreground">60%</span>
+                      </div>
+                      <div className="mt-1 h-2 overflow-hidden rounded-full bg-muted">
+                        <motion.div className="h-full rounded-full bg-primary"
+                          initial={{ width: "0%" }}
+                          animate={{ width: "60%" }}
+                          transition={{ duration: 1.5, ease: "easeOut" }} />
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+
+        {/* Second automation (inactive) */}
+        <AnimatePresence>
+          {step >= 4 && (
+            <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
+              className="mt-3 rounded-xl border border-border/60 bg-card p-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/50">
+                  <Zap className="h-5 w-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-foreground">Re-engagement Campaign</span>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[9px] font-medium text-muted-foreground">Draft</span>
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    0/0 contacts · 5/day limit · Created Mar 9
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] text-muted-foreground">
+                  <Play className="h-3 w-3" /> Start
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Add step hint */}
+        <AnimatePresence>
+          {step >= 5 && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              className="mt-3 flex items-center gap-3 rounded-xl border border-dashed border-primary/30 bg-primary/[0.03] p-3">
+              <p className="text-[10px] text-muted-foreground">
+                Build multi-step flows with <strong className="text-foreground">Send Template</strong>,{" "}
+                <strong className="text-foreground">Wait</strong>, and{" "}
+                <strong className="text-foreground">Condition</strong> steps.
+                Branch based on read/delivered/replied status.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ── Scene: Visual Chatbot Builder (NEW) ──────────────── */
 
 function SceneChatbots() {
@@ -1040,6 +1225,222 @@ function SceneCommunications() {
   );
 }
 
+/* ── Scene: Developer Tools (NEW) ─────────────────────── */
+
+function SceneDevelopers() {
+  const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    const timers = [
+      setTimeout(() => setStep(1), 1200),
+      setTimeout(() => setStep(2), 3000),
+      setTimeout(() => setStep(3), 5000),
+      setTimeout(() => setStep(4), 7000),
+      setTimeout(() => setStep(5), 9000),
+    ];
+    return () => timers.forEach(clearTimeout);
+  }, []);
+
+  return (
+    <motion.div {...fade} className="flex h-full">
+      <MockSidebar active="Developers" />
+      <div className="flex-1 overflow-hidden p-5">
+        <motion.div {...slideUp(0)}>
+          <h2 className="text-xl font-bold text-foreground">Developers</h2>
+          <p className="text-xs text-muted-foreground">Webhooks, API keys, and integration connectors</p>
+        </motion.div>
+
+        {/* Tabs */}
+        <motion.div {...slideUp(0.15)} className="mt-4 flex items-center gap-1 rounded-lg bg-muted/50 p-1 w-fit">
+          {[
+            { icon: Webhook, label: "Webhooks", active: step < 3 },
+            { icon: Key, label: "API Keys", active: step >= 3 && step < 5 },
+            { icon: Code2, label: "API Docs", active: step >= 5 },
+          ].map((tab) => (
+            <div key={tab.label}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[10px] font-medium transition-colors ${
+                tab.active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground"
+              }`}>
+              <tab.icon className="h-3 w-3" /> {tab.label}
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Webhooks content */}
+        <AnimatePresence mode="wait">
+          {step >= 1 && step < 3 && (
+            <motion.div key="webhooks" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="mt-4 space-y-3">
+              {/* Webhook card */}
+              <div className="rounded-xl border border-border/60 bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <Webhook className="h-5 w-5 text-primary" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">CRM Sync</span>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">Active</span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">https://crm.acmecorp.com/webhook</p>
+                    <div className="mt-1.5 flex gap-1">
+                      {["message.inbound", "message.status", "contact.created"].map((e) => (
+                        <span key={e} className="rounded border border-border/40 bg-background px-1.5 py-0.5 text-[8px] text-muted-foreground">{e}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-2 py-1 text-[10px] text-muted-foreground">
+                    <Clock className="h-3 w-3" /> Logs
+                  </div>
+                </div>
+
+                {/* Delivery logs */}
+                <AnimatePresence>
+                  {step >= 2 && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }}
+                      className="mt-3 space-y-1.5 border-t border-border/40 pt-3">
+                      <p className="text-[10px] font-semibold text-foreground">Recent Deliveries</p>
+                      {[
+                        { event: "message.inbound", status: 200, success: true, time: "2 min ago" },
+                        { event: "contact.created", status: 200, success: true, time: "15 min ago" },
+                        { event: "message.status", status: 500, success: false, time: "1 hour ago" },
+                      ].map((d, i) => (
+                        <motion.div key={i}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1, transition: { delay: i * 0.12 } }}
+                          className="flex items-center gap-2 rounded-lg bg-background px-3 py-1.5 text-[10px]">
+                          {d.success
+                            ? <CheckCircle className="h-3 w-3 text-emerald-500" />
+                            : <span className="flex h-3 w-3 items-center justify-center rounded-full bg-red-100 text-[7px] font-bold text-red-600">!</span>
+                          }
+                          <span className="font-medium text-foreground">{d.event}</span>
+                          <span className={`rounded px-1.5 py-0.5 text-[8px] font-medium ${
+                            d.success ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                          }`}>{d.status}</span>
+                          <span className="ml-auto text-muted-foreground">{d.time}</span>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Second webhook */}
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.3 } }}
+                className="rounded-xl border border-border/60 bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <Webhook className="h-5 w-5 text-muted-foreground" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground">Analytics Pipeline</span>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">Active</span>
+                    </div>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">https://analytics.acmecorp.com/ingest</p>
+                    <div className="mt-1.5 flex gap-1">
+                      {["message.outbound", "message.status"].map((e) => (
+                        <span key={e} className="rounded border border-border/40 bg-background px-1.5 py-0.5 text-[8px] text-muted-foreground">{e}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* API Keys content */}
+          {step >= 3 && step < 5 && (
+            <motion.div key="apikeys" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="mt-4 space-y-3">
+              {/* Generated key alert */}
+              <AnimatePresence>
+                {step >= 4 && (
+                  <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-3">
+                    <p className="mb-2 text-[10px] font-semibold text-emerald-700">
+                      API Key Generated — copy it now, it won't be shown again!
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 rounded-lg bg-white px-3 py-1.5 font-mono text-[10px] text-foreground">
+                        insync_a83f4e2b1c9d7f6e5a3b8c4d...
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className="rounded-md bg-background p-1.5 border border-border"><Eye className="h-3 w-3 text-muted-foreground" /></div>
+                        <div className="rounded-md bg-background p-1.5 border border-border"><Copy className="h-3 w-3 text-muted-foreground" /></div>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Key cards */}
+              {[
+                { name: "Shopify Integration", prefix: "insync_a83f...", scopes: ["read", "write"], used: "2 hours ago" },
+                { name: "Analytics Dashboard", prefix: "insync_7b2e...", scopes: ["read"], used: "5 days ago" },
+              ].map((k, i) => (
+                <motion.div key={k.name}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0, transition: { delay: i * 0.15 } }}
+                  className="rounded-xl border border-border/60 bg-card p-4">
+                  <div className="flex items-center gap-3">
+                    <Key className="h-5 w-5 text-primary" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">{k.name}</span>
+                        <code className="text-[10px] text-muted-foreground">{k.prefix}</code>
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <span>Scopes: {k.scopes.map((s) => (
+                          <span key={s} className="ml-1 rounded bg-primary/10 px-1.5 py-0.5 text-[8px] font-medium text-primary">{s}</span>
+                        ))}</span>
+                        <span>Last used: {k.used}</span>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+
+          {/* API Docs content */}
+          {step >= 5 && (
+            <motion.div key="docs" initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+              className="mt-4">
+              <div className="rounded-xl border border-border/60 bg-card p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <Code2 className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-xs font-semibold text-foreground">REST API Reference</span>
+                </div>
+                <div className="mb-3 text-[10px] text-muted-foreground">
+                  Base URL: <code className="rounded bg-muted px-1.5 py-0.5 text-[9px]">https://api.insync.com/v1</code>
+                  {" · "}Header: <code className="rounded bg-muted px-1.5 py-0.5 text-[9px]">x-api-key: your_key</code>
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { method: "GET", path: "/contacts", desc: "List contacts (paginated)" },
+                    { method: "POST", path: "/contacts", desc: "Create or update a contact" },
+                    { method: "GET", path: "/conversations", desc: "List conversations (?status=open)" },
+                    { method: "POST", path: "/messages/send", desc: "Send a message in a conversation" },
+                    { method: "GET", path: "/templates", desc: "List all approved templates" },
+                  ].map((ep, i) => (
+                    <motion.div key={ep.path + ep.method}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0, transition: { delay: i * 0.08 } }}
+                      className="flex items-center gap-2 rounded-lg bg-background px-3 py-1.5">
+                      <span className={`rounded px-1.5 py-0.5 text-[8px] font-bold ${
+                        ep.method === "GET" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
+                      }`}>{ep.method}</span>
+                      <code className="text-[10px] font-medium text-foreground">{ep.path}</code>
+                      <span className="ml-auto text-[9px] text-muted-foreground">{ep.desc}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </motion.div>
+  );
+}
+
 /* ── Scene: DPDP Compliance (NEW) ─────────────────────── */
 
 function SceneCompliance() {
@@ -1351,15 +1752,17 @@ function SceneOutro() {
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.5 }}
-        className="relative mt-8 grid grid-cols-3 gap-4"
+        className="relative mt-8 grid grid-cols-4 gap-3"
       >
         {[
-          { icon: Sparkles, title: "AI-Powered", desc: "Auto-replies, smart insights, and campaign analytics powered by AI" },
-          { icon: Bot, title: "Chatbot Builder", desc: "Visual drag-and-drop flow editor with 8 node types — no coding needed" },
-          { icon: Users, title: "Contact Segments", desc: "Filter, tag, and save audiences for precise campaign targeting" },
-          { icon: ShieldCheck, title: "DPDP Compliance", desc: "AES-256 encryption, consent tracking, data subject rights management" },
-          { icon: IndianRupee, title: "Transparent Billing", desc: "Per-message pricing, real-time wallet, self-serve Razorpay top-ups" },
-          { icon: Code2, title: "Developer API", desc: "REST API, webhooks, and API key management for seamless integrations" },
+          { icon: Sparkles, title: "AI-Powered", desc: "Auto-replies, smart insights, and AI campaign analytics" },
+          { icon: Bot, title: "Chatbot Builder", desc: "Visual drag-and-drop flow editor with 8 node types" },
+          { icon: Zap, title: "Drip Automations", desc: "Multi-step drip campaigns with branching and daily limits" },
+          { icon: Users, title: "Contact Segments", desc: "Filter, tag, and save audiences for targeting" },
+          { icon: ShieldCheck, title: "DPDP Compliance", desc: "AES-256 encryption, consent tracking, data rights" },
+          { icon: Webhook, title: "Webhooks", desc: "Real-time HTTP callbacks for all platform events" },
+          { icon: Code2, title: "REST API", desc: "Full API with scoped keys for external integrations" },
+          { icon: IndianRupee, title: "Transparent Billing", desc: "Per-message pricing with self-serve Razorpay top-ups" },
         ].map((p, i) => (
           <motion.div
             key={p.title}
@@ -1437,8 +1840,10 @@ export default function Demo() {
       case "dashboard": return <SceneDashboard />;
       case "contacts": return <SceneContacts />;
       case "campaigns": return <SceneCampaigns />;
+      case "automations": return <SceneAutomations />;
       case "chatbots": return <SceneChatbots />;
       case "communications": return <SceneCommunications />;
+      case "developers": return <SceneDevelopers />;
       case "compliance": return <SceneCompliance />;
       case "billing": return <SceneBilling />;
       case "outro": return <SceneOutro />;
