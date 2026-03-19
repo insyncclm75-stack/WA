@@ -180,13 +180,18 @@ export default function Login() {
         toast({ title: "Check your email", description: "If an account exists, we've sent a password reset link." });
       }
     } else if (isSignUp) {
-      const { data, error } = await supabase.functions.invoke("send-email", {
-        body: { type: "register", email, password },
-      });
-      if (error || data?.error) {
-        toast({ variant: "destructive", title: "Sign up failed", description: data?.error || error?.message });
-      } else {
-        toast({ title: "Check your email", description: "We've sent you a confirmation link." });
+      try {
+        const { data, error } = await supabase.functions.invoke("send-email", {
+          body: { type: "register", email, password },
+        });
+        if (error || data?.error) {
+          const msg = data?.error || (typeof data === "string" ? data : null) || error?.message || "Something went wrong. Please try again.";
+          toast({ variant: "destructive", title: "Sign up failed", description: msg });
+        } else {
+          toast({ title: "Check your email", description: "We've sent you a confirmation link." });
+        }
+      } catch (err: any) {
+        toast({ variant: "destructive", title: "Sign up failed", description: err.message || "Something went wrong. Please try again." });
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
