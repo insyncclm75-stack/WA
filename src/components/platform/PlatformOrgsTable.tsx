@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Search, ArrowUpDown, IndianRupee, Loader2, Trash2 } from "lucide-react";
+import { Search, ArrowUpDown, IndianRupee, Loader2, Trash2, Eye } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +48,26 @@ export function PlatformOrgsTable({ organizations }: Props) {
   const [deleteOrg, setDeleteOrg] = useState<OrgRow | null>(null);
   const [deleteConfirmName, setDeleteConfirmName] = useState("");
   const [deleting, setDeleting] = useState(false);
+
+  // Org details dialog state
+  const [detailOrg, setDetailOrg] = useState<OrgRow | null>(null);
+  const [detailMembers, setDetailMembers] = useState<any[]>([]);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const viewOrgDetails = async (org: OrgRow) => {
+    setDetailOrg(org);
+    setDetailLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-users", {
+        body: { action: "list", org_id: org.id },
+      });
+      if (error) throw error;
+      setDetailMembers(data?.users || []);
+    } catch {
+      setDetailMembers([]);
+    }
+    setDetailLoading(false);
+  };
 
   const handleCredit = async () => {
     if (!creditOrg) return;
@@ -180,7 +200,14 @@ export function PlatformOrgsTable({ organizations }: Props) {
               ) : (
                 filtered.map((org) => (
                   <TableRow key={org.id}>
-                    <TableCell className="font-medium">{org.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <button
+                        className="text-left hover:underline hover:text-primary transition-colors"
+                        onClick={() => viewOrgDetails(org)}
+                      >
+                        {org.name}
+                      </button>
+                    </TableCell>
                     <TableCell className="text-muted-foreground">{org.industry ?? "—"}</TableCell>
                     <TableCell>{org.members}</TableCell>
                     <TableCell>{org.contacts}</TableCell>
@@ -213,12 +240,13 @@ export function PlatformOrgsTable({ organizations }: Props) {
                         </Button>
                         {canDeleteOrg && org.contacts === 0 && org.campaigns === 0 && org.messages === 0 && (
                           <Button
-                            variant="outline"
-                            size="sm"
-                            className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
                             onClick={() => setDeleteOrg(org)}
+                            title="Delete organization"
                           >
-                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
@@ -316,6 +344,88 @@ export function PlatformOrgsTable({ organizations }: Props) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Org Details Dialog */}
+      <Dialog open={!!detailOrg} onOpenChange={(open) => { if (!open) setDetailOrg(null); }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{detailOrg?.name}</DialogTitle>
+            <DialogDescription>Organization details and members</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Industry</p>
+                <p className="font-medium">{detailOrg?.industry || "—"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Onboarding</p>
+                <Badge variant={detailOrg?.onboarding_completed ? "default" : "secondary"}>
+                  {detailOrg?.onboarding_completed ? "Complete" : "Pending"}
+                </Badge>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Contacts</p>
+                <p className="font-medium">{detailOrg?.contacts}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Campaigns</p>
+                <p className="font-medium">{detailOrg?.campaigns}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Messages</p>
+                <p className="font-medium">{detailOrg?.messages}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Created</p>
+                <p className="font-medium">
+                  {detailOrg?.created_at ? formatDistanceToNow(new Date(detailOrg.created_at), { addSuffix: true }) : "—"}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-medium mb-2">Members</p>
+              {detailLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : detailMembers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No members found</p>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Last Sign In</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailMembers.map((m: any) => (
+                        <TableRow key={m.id}>
+                          <TableCell className="text-sm">{m.email}</TableCell>
+                          <TableCell>
+                            <Badge variant={m.role === "admin" ? "default" : "secondary"} className="text-xs">
+                              {m.role}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {m.last_sign_in_at
+                              ? formatDistanceToNow(new Date(m.last_sign_in_at), { addSuffix: true })
+                              : "Never"}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
