@@ -8,7 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Search, ArrowUpDown, IndianRupee, Loader2 } from "lucide-react";
+import { Search, ArrowUpDown, IndianRupee, Loader2, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { formatDistanceToNow } from "date-fns";
 import type { OrgRow } from "@/hooks/usePlatformDashboard";
 
@@ -20,6 +31,7 @@ type SortKey = "name" | "members" | "contacts" | "campaigns" | "messages" | "del
 
 export function PlatformOrgsTable({ organizations }: Props) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortAsc, setSortAsc] = useState(true);
@@ -29,6 +41,13 @@ export function PlatformOrgsTable({ organizations }: Props) {
   const [creditAmount, setCreditAmount] = useState("100");
   const [creditDescription, setCreditDescription] = useState("");
   const [crediting, setCrediting] = useState(false);
+
+  // Delete dialog state
+  const ALLOWED_DELETE_EMAILS = ["amina@in-sync.co.in", "a@in-sync.co.in"];
+  const canDeleteOrg = user?.email ? ALLOWED_DELETE_EMAILS.includes(user.email.toLowerCase()) : false;
+  const [deleteOrg, setDeleteOrg] = useState<OrgRow | null>(null);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   const handleCredit = async () => {
     if (!creditOrg) return;
@@ -57,6 +76,25 @@ export function PlatformOrgsTable({ organizations }: Props) {
       toast({ variant: "destructive", title: "Error", description: err.message });
     }
     setCrediting(false);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteOrg || deleteConfirmName !== deleteOrg.name) return;
+    setDeleting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("manage-org", {
+        body: { action: "delete", org_id: deleteOrg.id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: "Organization deleted", description: `${deleteOrg.name} has been permanently deleted.` });
+      setDeleteOrg(null);
+      setDeleteConfirmName("");
+      window.location.reload();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+    }
+    setDeleting(false);
   };
 
   const handleSort = (key: SortKey) => {
@@ -164,14 +202,26 @@ export function PlatformOrgsTable({ organizations }: Props) {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={() => setCreditOrg(org)}
-                      >
-                        <IndianRupee className="h-3.5 w-3.5" /> Credit
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() => setCreditOrg(org)}
+                        >
+                          <IndianRupee className="h-3.5 w-3.5" /> Credit
+                        </Button>
+                        {canDeleteOrg && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5 text-destructive border-destructive/30 hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => setDeleteOrg(org)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -231,6 +281,41 @@ export function PlatformOrgsTable({ organizations }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteOrg} onOpenChange={(open) => { if (!open) { setDeleteOrg(null); setDeleteConfirmName(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {deleteOrg?.name}?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              <span className="block">
+                This will permanently delete <strong>{deleteOrg?.name}</strong> and all its data including members, contacts, campaigns, templates, messages, and credentials.
+              </span>
+              <span className="block font-medium text-destructive">This action cannot be undone.</span>
+              <span className="block">
+                Type <strong>{deleteOrg?.name}</strong> to confirm:
+              </span>
+              <Input
+                value={deleteConfirmName}
+                onChange={(e) => setDeleteConfirmName(e.target.value)}
+                placeholder="Organization name"
+                className="mt-2"
+              />
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setDeleteOrg(null); setDeleteConfirmName(""); }}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleteConfirmName !== deleteOrg?.name || deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
