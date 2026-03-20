@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Building2, MessageCircle, CreditCard, Loader2, Bot } from "lucide-react";
+import { Building2, MessageCircle, CreditCard, Loader2, Bot, Facebook, Check, Phone } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function OrgSettings() {
   const { currentOrg, refreshOrgs } = useOrg();
@@ -22,17 +23,14 @@ export default function OrgSettings() {
   const [industry, setIndustry] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
 
-  // Credentials
-  const [creds, setCreds] = useState({
-    exotel_api_key: "",
-    exotel_api_token: "",
-    exotel_subdomain: "",
-    exotel_waba_id: "",
-    exotel_account_sid: "",
-    exotel_sender_number: "",
-  });
+  // Credentials (only WABA ID and sender number are user-visible)
+  const [wabaId, setWabaId] = useState("");
+  const [senderNumber, setSenderNumber] = useState("");
+  const [phoneNumbers, setPhoneNumbers] = useState<string[]>([]);
   const [credsLoading, setCredsLoading] = useState(false);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [isvConnecting, setIsvConnecting] = useState(false);
+  const [isvConnected, setIsvConnected] = useState(false);
 
   // AI Config
   const [aiConfig, setAiConfig] = useState({
@@ -56,14 +54,9 @@ export default function OrgSettings() {
         if (cancelled) return;
         if (data?.credentials) {
           const c = data.credentials;
-          setCreds({
-            exotel_api_key: c.exotel_api_key ?? "",
-            exotel_api_token: c.exotel_api_token ?? "",
-            exotel_subdomain: c.exotel_subdomain ?? "",
-            exotel_waba_id: c.exotel_waba_id ?? "",
-            exotel_account_sid: c.exotel_account_sid ?? "",
-            exotel_sender_number: c.exotel_sender_number ?? "",
-          });
+          setWabaId(c.exotel_waba_id ?? "");
+          setSenderNumber(c.exotel_sender_number ?? "");
+          setPhoneNumbers(c.phone_numbers ?? []);
           setIsConfigured(c.is_configured);
         }
       });
@@ -129,7 +122,12 @@ export default function OrgSettings() {
     setCredsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("manage-org", {
-        body: { action: "update_credentials", org_id: currentOrg.id, ...creds },
+        body: {
+          action: "update_credentials",
+          org_id: currentOrg.id,
+          exotel_waba_id: wabaId,
+          exotel_sender_number: senderNumber,
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -139,6 +137,66 @@ export default function OrgSettings() {
       toast({ variant: "destructive", title: "Error", description: err.message });
     }
     setCredsLoading(false);
+  };
+
+  const handleFacebookConnect = async () => {
+    if (!currentOrg) return;
+    setIsvConnecting(true);
+    setIsvConnected(false);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-onboarding", {
+        body: { action: "generate_link", org_id: currentOrg.id },
+      });
+      if (error) throw error;
+      if (data?.error) {
+        toast({ variant: "destructive", title: "Error", description: data.error });
+        setIsvConnecting(false);
+        return;
+      }
+
+      const onboardingUrl =
+        data?.data?.response?.whatsapp?.isv?.data?.onboarding_url ||
+        data?.data?.onboarding_url ||
+        data?.data?.url;
+
+      if (onboardingUrl) {
+        const popup = window.open(onboardingUrl, "whatsapp_onboarding", "width=800,height=700,scrollbars=yes");
+
+        const pollTimer = setInterval(async () => {
+          if (popup?.closed) {
+            clearInterval(pollTimer);
+            await supabase.functions.invoke("whatsapp-onboarding", {
+              body: { action: "save_facebook", org_id: currentOrg.id },
+            });
+            setIsvConnected(true);
+            setIsvConnecting(false);
+            toast({ title: "WhatsApp number added", description: "Your number(s) will be activated shortly." });
+
+            // Re-fetch credentials
+            const { data: refreshed } = await supabase.functions.invoke("manage-org", {
+              body: { action: "get_credentials", org_id: currentOrg.id },
+            });
+            if (refreshed?.credentials) {
+              setWabaId(refreshed.credentials.exotel_waba_id ?? "");
+              setSenderNumber(refreshed.credentials.exotel_sender_number ?? "");
+              setPhoneNumbers(refreshed.credentials.phone_numbers ?? []);
+              setIsConfigured(refreshed.credentials.is_configured);
+            }
+
+            // Update profile pictures in background
+            supabase.functions.invoke("whatsapp-onboarding", {
+              body: { action: "update_profile_pictures", org_id: currentOrg.id },
+            }).catch(() => {});
+          }
+        }, 1000);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Could not generate onboarding link. Please try again." });
+        setIsvConnecting(false);
+      }
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err.message });
+      setIsvConnecting(false);
+    }
   };
 
   return (
@@ -194,50 +252,106 @@ export default function OrgSettings() {
         </TabsContent>
 
         <TabsContent value="whatsapp">
-          <Card>
-            <CardHeader>
-              <CardTitle>WhatsApp Integration (Exotel)</CardTitle>
-              <CardDescription>
-                {isConfigured
-                  ? "Your organization is using custom Exotel credentials."
-                  : "Using platform default credentials. Configure your own below."}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>API Key</Label>
-                  <Input value={creds.exotel_api_key} onChange={(e) => setCreds({ ...creds, exotel_api_key: e.target.value })} />
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>WhatsApp Integration</CardTitle>
+                <CardDescription>
+                  {isConfigured
+                    ? "Your organization's WhatsApp Business is configured."
+                    : "Using platform default configuration. Update WABA ID and sender number below."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>WABA ID</Label>
+                    <Input value={wabaId} onChange={(e) => setWabaId(e.target.value)} placeholder="WhatsApp Business Account ID" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Display Number</Label>
+                    <Input value={senderNumber} onChange={(e) => setSenderNumber(e.target.value)} placeholder="+91..." />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>API Token</Label>
-                  <Input type="password" value={creds.exotel_api_token} onChange={(e) => setCreds({ ...creds, exotel_api_token: e.target.value })} />
+
+                {phoneNumbers.length > 0 && (
+                  <div className="rounded-lg border border-border p-4">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Registered Numbers</p>
+                    <div className="space-y-1.5">
+                      {phoneNumbers.map((num, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm">
+                          <Phone className="h-3.5 w-3.5 text-green-500" />
+                          <span className="font-mono">{num}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <Button onClick={saveCreds} disabled={credsLoading}>
+                    {credsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Save
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Subdomain</Label>
-                  <Input value={creds.exotel_subdomain} onChange={(e) => setCreds({ ...creds, exotel_subdomain: e.target.value })} placeholder="api.exotel.com" />
-                </div>
-                <div className="space-y-2">
-                  <Label>WABA ID</Label>
-                  <Input value={creds.exotel_waba_id} onChange={(e) => setCreds({ ...creds, exotel_waba_id: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Account SID</Label>
-                  <Input value={creds.exotel_account_sid} onChange={(e) => setCreds({ ...creds, exotel_account_sid: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Sender Number</Label>
-                  <Input value={creds.exotel_sender_number} onChange={(e) => setCreds({ ...creds, exotel_sender_number: e.target.value })} placeholder="+91..." />
-                </div>
-              </div>
-              <div className="flex justify-end pt-2">
-                <Button onClick={saveCreds} disabled={credsLoading}>
-                  {credsLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Credentials
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Add WhatsApp Number</CardTitle>
+                <CardDescription>
+                  Connect your Meta Business account to add or manage WhatsApp numbers
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!isvConnected ? (
+                  <div className="space-y-4">
+                    <div className="rounded-lg bg-blue-500/5 border border-blue-500/20 p-4">
+                      <h4 className="text-sm font-medium text-blue-700 dark:text-blue-400">How it works</h4>
+                      <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        <li>1. A new window will open for Meta Business signup</li>
+                        <li>2. Log in with your Facebook account</li>
+                        <li>3. Select or create a WhatsApp Business Account</li>
+                        <li>4. Grant access to connect it with In-Sync</li>
+                      </ul>
+                    </div>
+
+                    <Button
+                      onClick={handleFacebookConnect}
+                      disabled={isvConnecting}
+                      className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                      size="lg"
+                    >
+                      {isvConnecting ? (
+                        <><Loader2 className="h-5 w-5 animate-spin" /> Opening registration...</>
+                      ) : (
+                        <><Facebook className="h-5 w-5" /> Connect with Facebook</>
+                      )}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3 py-4">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 200 }}
+                      className="flex h-16 w-16 items-center justify-center rounded-full bg-green-500/10"
+                    >
+                      <Check className="h-8 w-8 text-green-500" />
+                    </motion.div>
+                    <h4 className="font-semibold text-green-700 dark:text-green-400">Number Added Successfully</h4>
+                    <p className="text-sm text-muted-foreground text-center">
+                      Your WhatsApp number(s) will be activated shortly after verification.
+                    </p>
+                    <Button variant="outline" onClick={() => setIsvConnected(false)} className="mt-2 gap-2">
+                      <Facebook className="h-4 w-4" /> Add Another Number
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         <TabsContent value="ai">
