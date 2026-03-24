@@ -40,9 +40,28 @@ serve(async (req) => {
 
     const results: Record<string, { sent: number; advanced: number; completed: number; errors: number }> = {};
 
+    // Current time in IST (UTC+5:30)
+    const nowUTC = new Date();
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const nowIST = new Date(nowUTC.getTime() + istOffsetMs);
+    const istHour = nowIST.getUTCHours();
+    const istMinute = nowIST.getUTCMinutes();
+
     for (const automation of automations) {
       const stats = { sent: 0, advanced: 0, completed: 0, errors: 0 };
       results[automation.id] = stats;
+
+      // Skip if automation has a scheduled_time and current IST time isn't within the window
+      if (automation.scheduled_time) {
+        const [schedH, schedM] = automation.scheduled_time.split(":").map(Number);
+        // Allow a 30-minute window (cron runs every 30 min)
+        const schedMinutes = schedH * 60 + schedM;
+        const currentMinutes = istHour * 60 + istMinute;
+        const diff = Math.abs(currentMinutes - schedMinutes);
+        if (diff > 30 && diff < 1410) { // 1410 = 24*60 - 30 (wrap-around)
+          continue;
+        }
+      }
 
       // Get all steps for this automation
       const { data: steps } = await supabase

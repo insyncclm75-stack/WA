@@ -54,6 +54,7 @@ interface Automation {
   org_id: string;
   name: string;
   daily_limit: number;
+  scheduled_time: string | null;
   status: string;
   total_contacts: number;
   processed_contacts: number;
@@ -81,6 +82,7 @@ export default function Automations() {
   ]);
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [csvContacts, setCsvContacts] = useState<{ phone_number: string; name?: string }[]>([]);
+  const [scheduledTime, setScheduledTime] = useState("09:00");
   const [creating, setCreating] = useState(false);
 
   const fetchAutomations = useCallback(async () => {
@@ -265,6 +267,7 @@ export default function Automations() {
           name: name.trim(),
           daily_limit: parseInt(dailyLimit) || 10,
           total_contacts: csvContacts.length,
+          scheduled_time: scheduledTime || null,
           created_by: user.id,
         })
         .select("id")
@@ -318,6 +321,7 @@ export default function Automations() {
   const resetCreator = () => {
     setName("");
     setDailyLimit("10");
+    setScheduledTime("09:00");
     setSteps([{ step_order: 1, step_type: "send_template" }]);
     setCsvFile(null);
     setCsvContacts([]);
@@ -372,8 +376,8 @@ export default function Automations() {
             </DialogHeader>
 
             <div className="space-y-6 pt-2">
-              {/* Name & Daily Limit */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* Name, Daily Limit & Scheduled Time */}
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <Label>Automation Name</Label>
                   <Input
@@ -390,6 +394,15 @@ export default function Automations() {
                     value={dailyLimit}
                     onChange={(e) => setDailyLimit(e.target.value)}
                     min={1}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label>Send Time (IST)</Label>
+                  <Input
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
                     className="mt-1"
                   />
                 </div>
@@ -636,6 +649,7 @@ export default function Automations() {
                     {a.processed_contacts}/{a.total_contacts} contacts processed
                     {" "}&middot;{" "}
                     {a.daily_limit}/day limit
+                    {a.scheduled_time ? ` at ${a.scheduled_time.slice(0, 5)} IST` : ""}
                     {" "}&middot;{" "}
                     Created {new Date(a.created_at).toLocaleDateString()}
                   </p>
