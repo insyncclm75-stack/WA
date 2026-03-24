@@ -405,12 +405,13 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
   };
 
   const downloadCsvTemplate = () => {
-    if (!selectedTemplate) return;
-    const vars = templateVars.map((v) => `variable_${v.replace(/\D/g, "")}`);
-    const cols = ["phone_number", "name", ...vars];
+    const vars = selectedTemplate
+      ? templateVars.map((v) => `variable_${v.replace(/\D/g, "")}`)
+      : [];
+    const cols = ["phone_number", "name", "email", ...vars];
     const header = cols.join(",");
-    const row1 = ["+919876543210", "John", ...vars.map((_, i) => `sample_value_${i + 1}`)].join(",");
-    const row2 = ["+919876543211", "Jane", ...vars.map((_, i) => `sample_value_${i + 1}`)].join(",");
+    const row1 = ["+919876543210", "John", "john@example.com", ...vars.map((_, i) => `sample_value_${i + 1}`)].join(",");
+    const row2 = ["+919876543211", "Jane", "jane@example.com", ...vars.map((_, i) => `sample_value_${i + 1}`)].join(",");
     const csv = [header, row1, row2].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -694,19 +695,75 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Contact List</CardTitle>
+              <CardDescription className="text-xs">Upload a CSV file with your contacts</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-3">
-                <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="h-3.5 w-3.5" /> Upload CSV
-                </Button>
-                {selectedTemplate && (
-                  <Button variant="ghost" size="sm" className="gap-2" onClick={downloadCsvTemplate}>
-                    <Download className="h-3.5 w-3.5" /> Sample CSV
+              {/* Format guide + download template */}
+              {!csvFileName && (
+                <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 p-4 space-y-3">
+                  <div className="space-y-1.5">
+                    <p className="text-sm font-medium text-foreground">CSV Format</p>
+                    <p className="text-xs text-muted-foreground">
+                      Your file must include a <span className="font-mono font-medium text-foreground">phone_number</span> or <span className="font-mono font-medium text-foreground">mobile</span> column. Optional columns: <span className="font-mono text-foreground">name</span>, <span className="font-mono text-foreground">email</span>, and any custom fields for template variables.
+                    </p>
+                  </div>
+                  <div className="overflow-hidden rounded border bg-background">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b bg-muted/50">
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">phone_number</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">name</th>
+                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">email</th>
+                          {templateVars.length > 0 && templateVars.map((v) => (
+                            <th key={v} className="px-3 py-1.5 text-left font-medium text-muted-foreground">
+                              variable_{v.replace(/\D/g, "")}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="text-muted-foreground">
+                        <tr className="border-b">
+                          <td className="px-3 py-1.5">+919876543210</td>
+                          <td className="px-3 py-1.5">John</td>
+                          <td className="px-3 py-1.5">john@example.com</td>
+                          {templateVars.length > 0 && templateVars.map((v, i) => (
+                            <td key={v} className="px-3 py-1.5">value_{i + 1}</td>
+                          ))}
+                        </tr>
+                        <tr>
+                          <td className="px-3 py-1.5">+919876543211</td>
+                          <td className="px-3 py-1.5">Jane</td>
+                          <td className="px-3 py-1.5">jane@example.com</td>
+                          {templateVars.length > 0 && templateVars.map((v, i) => (
+                            <td key={v} className="px-3 py-1.5">value_{i + 1}</td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button variant="default" size="sm" className="gap-2" onClick={downloadCsvTemplate}>
+                      <Download className="h-3.5 w-3.5" /> Download Template
+                    </Button>
+                    <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+                      <Upload className="h-3.5 w-3.5" /> Upload CSV
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload button when CSV already loaded (for replacing) */}
+              {csvFileName && (
+                <div className="flex gap-3">
+                  <Button variant="outline" size="sm" className="gap-2" onClick={() => fileInputRef.current?.click()}>
+                    <Upload className="h-3.5 w-3.5" /> Replace CSV
                   </Button>
-                )}
-                <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
-              </div>
+                  <Button variant="ghost" size="sm" className="gap-2" onClick={downloadCsvTemplate}>
+                    <Download className="h-3.5 w-3.5" /> Download Template
+                  </Button>
+                </div>
+              )}
+              <input ref={fileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
 
               {csvFileName && (
                 <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2">
