@@ -10,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Play, Eye, ArrowLeft, ArrowRight, Upload, Download,
-  FileText, AlertCircle, Loader2, X, Rocket, CheckCircle2,
+  FileText, AlertCircle, Loader2, X, Rocket, CheckCircle2, Search,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -118,6 +119,17 @@ const statusColor: Record<string, string> = {
   failed: "bg-destructive/10 text-destructive",
 };
 
+// ─── Campaign Metrics ───
+
+interface CampaignMetrics {
+  audience: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  responded: number;
+  failed: number;
+}
+
 // ─── Campaign List ───
 
 function CampaignList({ onNew }: { onNew: () => void }) {
@@ -125,18 +137,81 @@ function CampaignList({ onNew }: { onNew: () => void }) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [metrics, setMetrics] = useState<Record<string, CampaignMetrics>>({});
   const [loading, setLoading] = useState(true);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
 
   const fetchCampaigns = useCallback(async () => {
     if (!currentOrg) return;
     setLoading(true);
-    const { data } = await supabase
-      .from("campaigns")
-      .select("*")
-      .eq("org_id", currentOrg.id)
-      .order("created_at", { ascending: false });
-    setCampaigns(data ?? []);
+
+    // Fetch campaigns, contacts counts, and message stats in parallel
+    const [campRes, contactsRes, msgsRes] = await Promise.all([
+      supabase
+        .from("campaigns")
+        .select("*")
+        .eq("org_id", currentOrg.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("campaign_contacts")
+        .select("campaign_id")
+        .eq("org_id", currentOrg.id),
+      supabase
+        .from("messages")
+        .select("campaign_id, status, direction")
+        .eq("org_id", currentOrg.id),
+    ]);
+
+    const campData = campRes.data ?? [];
+    setCampaigns(campData);
+
+    // Build metrics map
+    const metricsMap: Record<string, CampaignMetrics> = {};
+    for (const c of campData) {
+      metricsMap[c.id] = { audience: 0, sent: 0, delivered: 0, read: 0, responded: 0, failed: 0 };
+    }
+
+    // Count audience per campaign
+    for (const cc of contactsRes.data ?? []) {
+      if (metricsMap[cc.campaign_id]) {
+        metricsMap[cc.campaign_id].audience++;
+      }
+    }
+
+    // Count message statuses per campaign
+    for (const m of msgsRes.data ?? []) {
+      const met = m.campaign_id ? metricsMap[m.campaign_id] : null;
+      if (!met) continue;
+      if ((m as any).direction === "inbound") {
+        met.responded++;
+        continue;
+      }
+      switch (m.status) {
+        case "sent":
+          met.sent++;
+          break;
+        case "delivered":
+          met.sent++;
+          met.delivered++;
+          break;
+        case "read":
+          met.sent++;
+          met.delivered++;
+          met.read++;
+          break;
+        case "failed":
+          met.failed++;
+          break;
+        // pending: not counted in sent/delivered/read
+      }
+    }
+
+    setMetrics(metricsMap);
     setLoading(false);
   }, [currentOrg]);
 
@@ -145,7 +220,7 @@ function CampaignList({ onNew }: { onNew: () => void }) {
   }, [fetchCampaigns]);
 
   const launchCampaign = async (id: string) => {
-    if (launchingId) return; // Prevent double-launch
+    if (launchingId) return;
     setLaunchingId(id);
 
     try {
@@ -159,11 +234,9 @@ function CampaignList({ onNew }: { onNew: () => void }) {
         return;
       }
 
-      // Find current status to know which transition to attempt
       const { data: camp } = await supabase.from("campaigns").select("status").eq("id", id).single();
       const fromStatus = camp?.status === "scheduled" ? "scheduled" : "draft";
 
-      // Atomic status transition: draft/scheduled→running (prevents double-launch at DB level)
       const { data: transitioned } = await supabase.rpc("transition_campaign_status", {
         _campaign_id: id,
         _from_status: fromStatus,
@@ -193,6 +266,23 @@ function CampaignList({ onNew }: { onNew: () => void }) {
     }
   };
 
+  // Apply filters
+  const filtered = useMemo(() => {
+    return campaigns.filter((c) => {
+      if (filterStatus !== "all" && c.status !== filterStatus) return false;
+      if (filterCategory !== "all" && (c.message_category || "marketing") !== filterCategory) return false;
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = c.name?.toLowerCase().includes(q);
+        const descMatch = c.description?.toLowerCase().includes(q);
+        if (!nameMatch && !descMatch) return false;
+      }
+      return true;
+    });
+  }, [campaigns, filterStatus, filterCategory, searchQuery]);
+
+  const pctOf = (num: number, total: number) => total > 0 ? `${Math.round((num / total) * 100)}%` : "—";
+
   return (
     <>
       <div className="mb-6 flex items-center justify-between">
@@ -205,6 +295,53 @@ function CampaignList({ onNew }: { onNew: () => void }) {
         </Button>
       </div>
 
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search campaigns..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-56 pl-8 text-sm"
+          />
+        </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="h-9 w-36 text-sm">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
+            <SelectItem value="running">Running</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="h-9 w-40 text-sm">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            <SelectItem value="marketing">Marketing</SelectItem>
+            <SelectItem value="utility">Utility</SelectItem>
+            <SelectItem value="authentication">Authentication</SelectItem>
+          </SelectContent>
+        </Select>
+        {(searchQuery || filterStatus !== "all" || filterCategory !== "all") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 text-xs text-muted-foreground"
+            onClick={() => { setSearchQuery(""); setFilterStatus("all"); setFilterCategory("all"); }}
+          >
+            Clear filters
+          </Button>
+        )}
+      </div>
+
       {loading ? (
         <p className="py-8 text-center text-muted-foreground">Loading...</p>
       ) : campaigns.length === 0 ? (
@@ -213,43 +350,109 @@ function CampaignList({ onNew }: { onNew: () => void }) {
             <p className="text-muted-foreground">No campaigns yet. Create your first one!</p>
           </CardContent>
         </Card>
+      ) : filtered.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">No campaigns match your filters.</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {campaigns.map((c) => (
-            <Card key={c.id} className="border-border">
-              <CardHeader className="flex flex-row items-start justify-between">
-                <div>
-                  <CardTitle className="text-lg">{c.name}</CardTitle>
-                  {c.description && <p className="mt-1 text-sm text-muted-foreground">{c.description}</p>}
-                </div>
-                <Badge className={statusColor[c.status] || ""}>{c.status}</Badge>
-              </CardHeader>
-              <CardContent>
-                {c.template_message && (
-                  <p className="mb-4 line-clamp-2 text-sm text-muted-foreground">
-                    {stripContentMarkers(c.template_message)}
-                  </p>
-                )}
-                {c.status === "scheduled" && c.scheduled_at && (
-                  <p className="mb-3 text-xs text-muted-foreground">
-                    Scheduled: {new Date(c.scheduled_at).toLocaleString()}
-                  </p>
-                )}
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate(`/campaigns/${c.id}`)}>
-                    <Eye className="h-3.5 w-3.5" /> View
-                  </Button>
-                  {(c.status === "draft" || c.status === "scheduled") && (
-                    <Button size="sm" className="gap-1" onClick={() => launchCampaign(c.id)} disabled={launchingId === c.id}>
-                      {launchingId === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-                      {launchingId === c.id ? "Launching..." : c.status === "scheduled" ? "Launch Now" : "Launch"}
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Campaign</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead className="text-right">Audience</TableHead>
+                <TableHead className="text-right">Sent</TableHead>
+                <TableHead className="text-right">Delivered</TableHead>
+                <TableHead className="text-right">Opened</TableHead>
+                <TableHead className="text-right">Responded</TableHead>
+                <TableHead className="text-right">Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((c) => {
+                const m = metrics[c.id] || { audience: 0, sent: 0, delivered: 0, read: 0, responded: 0, failed: 0 };
+                return (
+                  <TableRow key={c.id} className="cursor-pointer" onClick={() => navigate(`/campaigns/${c.id}`)}>
+                    <TableCell>
+                      <div className="min-w-[160px]">
+                        <p className="font-medium text-foreground">{c.name}</p>
+                        {c.template_message && (
+                          <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                            {stripContentMarkers(c.template_message)}
+                          </p>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={statusColor[c.status] || ""}>
+                        {c.status === "running" && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
+                        {c.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm capitalize text-muted-foreground">{c.message_category || "marketing"}</span>
+                    </TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">
+                      {m.audience.toLocaleString()}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <div>
+                        <span className="font-medium">{m.sent.toLocaleString()}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">{pctOf(m.sent, m.audience)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <div>
+                        <span className="font-medium">{m.delivered.toLocaleString()}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">{pctOf(m.delivered, m.sent)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <div>
+                        <span className="font-medium">{m.read.toLocaleString()}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">{pctOf(m.read, m.delivered)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      <div>
+                        <span className="font-medium">{m.responded.toLocaleString()}</span>
+                        <span className="ml-1 text-xs text-muted-foreground">{pctOf(m.responded, m.audience)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap text-sm text-muted-foreground">
+                      {c.scheduled_at
+                        ? new Date(c.scheduled_at).toLocaleDateString()
+                        : new Date(c.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(`/campaigns/${c.id}`)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {(c.status === "draft" || c.status === "scheduled") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary"
+                            onClick={() => launchCampaign(c.id)}
+                            disabled={launchingId === c.id}
+                          >
+                            {launchingId === c.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </>
   );
