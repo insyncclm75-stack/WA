@@ -608,13 +608,11 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
   };
 
   const downloadCsvTemplate = () => {
-    const vars = selectedTemplate
-      ? templateVars.map((v) => `variable_${v.replace(/\D/g, "")}`)
-      : [];
-    const cols = ["phone_number", "name", "email", ...vars];
+    const vars = templateVars.map((v) => `{{${v.replace(/\D/g, "")}}}`);
+    const cols = ["phone_number", ...vars];
     const header = cols.join(",");
-    const row1 = ["+919876543210", "John", "john@example.com", ...vars.map((_, i) => `sample_value_${i + 1}`)].join(",");
-    const row2 = ["+919876543211", "Jane", "jane@example.com", ...vars.map((_, i) => `sample_value_${i + 1}`)].join(",");
+    const row1 = ["+919876543210", ...vars.map((_, i) => `value_${i + 1}`)].join(",");
+    const row2 = ["+919876543211", ...vars.map((_, i) => `value_${i + 1}`)].join(",");
     const csv = [header, row1, row2].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -901,13 +899,13 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
               <CardDescription className="text-xs">Upload a CSV file with your contacts</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {/* Format guide + download template */}
-              {!csvFileName && (
+              {/* Format guide + download template — only show when template is selected */}
+              {!csvFileName && selectedTemplate && (
                 <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 p-4 space-y-3">
                   <div className="space-y-1.5">
                     <p className="text-sm font-medium text-foreground">CSV Format</p>
                     <p className="text-xs text-muted-foreground">
-                      Your file must include a <span className="font-mono font-medium text-foreground">phone_number</span> or <span className="font-mono font-medium text-foreground">mobile</span> column. Optional columns: <span className="font-mono text-foreground">name</span>, <span className="font-mono text-foreground">email</span>, and any custom fields for template variables.
+                      Your file must have a <span className="font-mono font-medium text-foreground">phone_number</span> column{templateVars.length > 0 && <> and columns for each template variable (<span className="font-mono font-medium text-foreground">{templateVars.map(v => `{{${v.replace(/\D/g, "")}}}`).join(", ")}</span>)</>}.
                     </p>
                   </div>
                   <div className="overflow-hidden rounded border bg-background">
@@ -915,11 +913,9 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
                       <thead>
                         <tr className="border-b bg-muted/50">
                           <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">phone_number</th>
-                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">name</th>
-                          <th className="px-3 py-1.5 text-left font-medium text-muted-foreground">email</th>
-                          {templateVars.length > 0 && templateVars.map((v) => (
+                          {templateVars.map((v) => (
                             <th key={v} className="px-3 py-1.5 text-left font-medium text-muted-foreground">
-                              variable_{v.replace(/\D/g, "")}
+                              {`{{${v.replace(/\D/g, "")}}}`}
                             </th>
                           ))}
                         </tr>
@@ -927,17 +923,13 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
                       <tbody className="text-muted-foreground">
                         <tr className="border-b">
                           <td className="px-3 py-1.5">+919876543210</td>
-                          <td className="px-3 py-1.5">John</td>
-                          <td className="px-3 py-1.5">john@example.com</td>
-                          {templateVars.length > 0 && templateVars.map((v, i) => (
+                          {templateVars.map((v, i) => (
                             <td key={v} className="px-3 py-1.5">value_{i + 1}</td>
                           ))}
                         </tr>
                         <tr>
                           <td className="px-3 py-1.5">+919876543211</td>
-                          <td className="px-3 py-1.5">Jane</td>
-                          <td className="px-3 py-1.5">jane@example.com</td>
-                          {templateVars.length > 0 && templateVars.map((v, i) => (
+                          {templateVars.map((v, i) => (
                             <td key={v} className="px-3 py-1.5">value_{i + 1}</td>
                           ))}
                         </tr>
@@ -953,6 +945,13 @@ function CampaignCreator({ onBack }: { onBack: () => void }) {
                     </Button>
                   </div>
                 </div>
+              )}
+
+              {/* Prompt to select template first */}
+              {!csvFileName && !selectedTemplate && (
+                <p className="py-3 text-center text-sm text-muted-foreground">
+                  Select a template above to see the required CSV format.
+                </p>
               )}
 
               {/* Upload button when CSV already loaded (for replacing) */}
