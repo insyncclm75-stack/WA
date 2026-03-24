@@ -289,43 +289,22 @@ export default function Automations() {
 
       if (stepsErr) throw stepsErr;
 
-      // 3. Insert contacts (skip duplicates), query IDs, link to automation
-      const contactRows = csvContacts.map((c) => ({
-        phone_number: c.phone_number,
-        name: c.name || null,
-        org_id: currentOrg.id,
-        user_id: user.id,
-        source: "automation_csv",
-        custom_fields: {},
-      }));
+      // 3. Upload contacts via edge function (uses service role key to bypass RLS)
+      const { data: result, error: fnErr } = await supabase.functions.invoke(
+        "process-automation-contacts",
+        {
+          body: {
+            automation_id: automation.id,
+            contacts: csvContacts,
+            org_id: currentOrg.id,
+          },
+        }
+      );
 
-      // Insert — duplicates are silently skipped
-      await supabase
-        .from("contacts")
-        .upsert(contactRows, { onConflict: "phone_number,org_id", ignoreDuplicates: true });
+      if (fnErr) throw fnErr;
+      if (!result?.success) throw new Error(result?.error || "Failed to upload contacts");
 
-      // Get IDs for all phone numbers (whether just inserted or already existed)
-      const phones = csvContacts.map((c) => c.phone_number);
-      const { data: found, error: findErr } = await supabase
-        .from("contacts")
-        .select("id")
-        .eq("org_id", currentOrg.id)
-        .in("phone_number", phones);
-
-      if (findErr) throw findErr;
-      if (!found || found.length === 0) throw new Error("No contacts found after insert.");
-
-      // Link contacts to automation
-      const links = found.map((c) => ({
-        automation_id: automation.id,
-        contact_id: c.id,
-      }));
-      const { error: linkErr } = await supabase
-        .from("automation_contacts")
-        .insert(links);
-      if (linkErr) throw linkErr;
-
-      toast({ title: "Automation created", description: `${found.length} contacts added` });
+      toast({ title: "Automation created", description: `${result.linked} contacts added` });
       setShowCreator(false);
       resetCreator();
       fetchAutomations();
