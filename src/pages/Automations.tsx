@@ -289,32 +289,42 @@ export default function Automations() {
 
       if (stepsErr) throw stepsErr;
 
-      // 3. Upsert contacts and create automation_contacts
-      for (const c of csvContacts) {
-        // Upsert contact
-        const { data: contact } = await supabase
-          .from("contacts")
-          .upsert(
-            {
-              phone_number: c.phone_number,
-              name: c.name || null,
-              org_id: currentOrg.id,
-              source: "automation_csv",
-            },
-            { onConflict: "phone_number,org_id" }
-          )
-          .select("id")
-          .single();
+      // 3. Upsert contacts in batches and create automation_contacts
+      const BATCH = 500;
+      let totalLinked = 0;
 
-        if (contact) {
-          await supabase.from("automation_contacts").insert({
+      for (let i = 0; i < csvContacts.length; i += BATCH) {
+        const batch = csvContacts.slice(i, i + BATCH).map((c) => ({
+          phone_number: c.phone_number,
+          name: c.name || null,
+          org_id: currentOrg.id,
+          user_id: user.id,
+          source: "automation_csv",
+        }));
+
+        const { data: upserted, error: upsertErr } = await supabase
+          .from("contacts")
+          .upsert(batch, { onConflict: "phone_number,org_id", ignoreDuplicates: false })
+          .select("id");
+
+        if (upsertErr) throw upsertErr;
+
+        if (upserted && upserted.length > 0) {
+          const links = upserted.map((c) => ({
             automation_id: automation.id,
-            contact_id: contact.id,
-          });
+            contact_id: c.id,
+          }));
+
+          const { error: linkErr } = await supabase
+            .from("automation_contacts")
+            .insert(links);
+
+          if (linkErr) throw linkErr;
+          totalLinked += upserted.length;
         }
       }
 
-      toast({ title: "Automation created", description: `${csvContacts.length} contacts added` });
+      toast({ title: "Automation created", description: `${totalLinked} contacts added` });
       setShowCreator(false);
       resetCreator();
       fetchAutomations();
