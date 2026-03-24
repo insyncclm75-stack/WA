@@ -289,9 +289,9 @@ export default function Automations() {
 
       if (stepsErr) throw stepsErr;
 
-      // 3. Upsert contacts in batches and create automation_contacts
+      // 3. Upsert contacts in batches, then query IDs, then link
       const BATCH = 500;
-      let totalLinked = 0;
+      const allPhones: string[] = [];
 
       for (let i = 0; i < csvContacts.length; i += BATCH) {
         const batch = csvContacts.slice(i, i + BATCH).map((c) => ({
@@ -300,31 +300,59 @@ export default function Automations() {
           org_id: currentOrg.id,
           user_id: user.id,
           source: "automation_csv",
+          custom_fields: {},
         }));
 
-        const { data: upserted, error: upsertErr } = await supabase
+        const { data, error } = await supabase
           .from("contacts")
           .upsert(batch, { onConflict: "phone_number,org_id", ignoreDuplicates: false })
-          .select("id");
+          .select("id, phone_number");
 
-        if (upsertErr) throw upsertErr;
-
-        if (upserted && upserted.length > 0) {
-          const links = upserted.map((c) => ({
-            automation_id: automation.id,
-            contact_id: c.id,
-          }));
-
-          const { error: linkErr } = await supabase
-            .from("automation_contacts")
-            .insert(links);
-
-          if (linkErr) throw linkErr;
-          totalLinked += upserted.length;
+        if (error) {
+          // Batch failed — retry one-by-one to isolate bad rows
+          for (const record of batch) {
+            const { error: singleErr } = await supabase
+              .from("contacts")
+              .upsert(record, { onConflict: "phone_number,org_id", ignoreDuplicates: false });
+            if (!singleErr) allPhones.push(record.phone_number);
+          }
+        } else {
+          allPhones.push(...batch.map((b) => b.phone_number));
         }
       }
 
-      toast({ title: "Automation created", description: `${totalLinked} contacts added` });
+      if (allPhones.length === 0) {
+        throw new Error("No contacts could be uploaded. Check your CSV data.");
+      }
+
+      // Query contact IDs by phone numbers (guaranteed to exist after upsert)
+      const contactIds: string[] = [];
+      for (let i = 0; i < allPhones.length; i += BATCH) {
+        const phoneBatch = allPhones.slice(i, i + BATCH);
+        const { data: found } = await supabase
+          .from("contacts")
+          .select("id")
+          .eq("org_id", currentOrg.id)
+          .in("phone_number", phoneBatch);
+        if (found) contactIds.push(...found.map((c) => c.id));
+      }
+
+      // Link contacts to automation
+      if (contactIds.length > 0) {
+        const links = contactIds.map((cid) => ({
+          automation_id: automation.id,
+          contact_id: cid,
+        }));
+        for (let i = 0; i < links.length; i += BATCH) {
+          const linkBatch = links.slice(i, i + BATCH);
+          const { error: linkErr } = await supabase
+            .from("automation_contacts")
+            .insert(linkBatch);
+          if (linkErr) throw linkErr;
+        }
+      }
+
+      toast({ title: "Automation created", description: `${contactIds.length} contacts added` });
       setShowCreator(false);
       resetCreator();
       fetchAutomations();
