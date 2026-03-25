@@ -66,6 +66,51 @@ serve(async (req) => {
 
       const maxStep = Math.max(...steps.map((s: any) => s.step_order));
 
+      // ── Ensure automation has a linked campaign ──
+      let campaignId = automation.campaign_id;
+      if (!campaignId) {
+        const firstSendStep = steps.find((s: any) => s.step_type === "send_template");
+        let templateInfo: any = null;
+        if (firstSendStep?.template_id) {
+          const { data } = await supabase.from("templates").select("*").eq("id", firstSendStep.template_id).single();
+          templateInfo = data;
+        }
+
+        const { data: campaign } = await supabase.from("campaigns").insert({
+          user_id: automation.created_by,
+          org_id: automation.org_id,
+          name: automation.name,
+          status: "running",
+          template_id: firstSendStep?.template_id || null,
+          template_message: templateInfo?.content || null,
+          message_category: templateInfo?.category?.toLowerCase() || "marketing",
+        }).select("id").single();
+
+        if (campaign) {
+          campaignId = campaign.id;
+          await supabase.from("automations").update({ campaign_id: campaignId }).eq("id", automation.id);
+          automation.campaign_id = campaignId;
+
+          // Seed campaign_contacts from all automation contacts (for audience count)
+          const { data: allAc } = await supabase
+            .from("automation_contacts")
+            .select("contact_id")
+            .eq("automation_id", automation.id);
+
+          if (allAc && allAc.length > 0) {
+            const ccRows = allAc.map((a: any) => ({
+              campaign_id: campaignId,
+              contact_id: a.contact_id,
+              org_id: automation.org_id,
+            }));
+            // Insert in batches of 500
+            for (let i = 0; i < ccRows.length; i += 500) {
+              await supabase.from("campaign_contacts").insert(ccRows.slice(i, i + 500));
+            }
+          }
+        }
+      }
+
       // Get Exotel creds for this org
       let creds: any;
       try {
@@ -115,7 +160,7 @@ serve(async (req) => {
             .eq("id", ac.id);
 
           // Process the next step inline
-          await processStep(supabase, automation, nextStep, ac, steps, maxStep, creds, exotelUrl, stats);
+          await processStep(supabase, automation, nextStep, ac, steps, maxStep, creds, exotelUrl, stats, campaignId);
         }
       }
 
@@ -152,7 +197,7 @@ serve(async (req) => {
         const firstStep = steps.find((s: any) => s.step_order === 1);
         if (!firstStep) continue;
 
-        await processStep(supabase, automation, firstStep, ac, steps, maxStep, creds, exotelUrl, stats);
+        await processStep(supabase, automation, firstStep, ac, steps, maxStep, creds, exotelUrl, stats, campaignId);
       }
 
       // ── Phase 3: Process contacts in 'in_progress' for condition steps ──
@@ -166,7 +211,7 @@ serve(async (req) => {
         const currentStep = steps.find((s: any) => s.step_order === ac.current_step_order);
         if (!currentStep || currentStep.step_type !== "condition") continue;
 
-        await processStep(supabase, automation, currentStep, ac, steps, maxStep, creds, exotelUrl, stats);
+        await processStep(supabase, automation, currentStep, ac, steps, maxStep, creds, exotelUrl, stats, campaignId);
       }
 
       // Update automation processed count
@@ -181,16 +226,27 @@ serve(async (req) => {
         .select("*", { count: "exact", head: true })
         .eq("automation_id", automation.id);
 
+      const isComplete = processedCount === totalCount && (totalCount ?? 0) > 0;
+
       await supabase
         .from("automations")
         .update({
           processed_contacts: processedCount ?? 0,
           updated_at: new Date().toISOString(),
-          ...(processedCount === totalCount && (totalCount ?? 0) > 0
-            ? { status: "completed" }
-            : {}),
+          ...(isComplete ? { status: "completed" } : {}),
         })
         .eq("id", automation.id);
+
+      // Sync campaign status
+      if (campaignId) {
+        await supabase
+          .from("campaigns")
+          .update({
+            status: isComplete ? "completed" : "running",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", campaignId);
+      }
     }
 
     return new Response(JSON.stringify({ success: true, results }), {
@@ -214,7 +270,8 @@ async function processStep(
   maxStep: number,
   creds: any,
   exotelUrl: string,
-  stats: any
+  stats: any,
+  campaignId: string | null
 ) {
   const orgId = automation.org_id;
 
@@ -351,6 +408,7 @@ async function processStep(
         .insert({
           contact_id: contact.id,
           content: message,
+          campaign_id: campaignId,
           status:
             exotelResponse.ok && msgData?.status === "success"
               ? "sent"
@@ -593,7 +651,8 @@ async function processStep(
       maxStep,
       creds,
       exotelUrl,
-      stats
+      stats,
+      campaignId
     );
   }
 }
