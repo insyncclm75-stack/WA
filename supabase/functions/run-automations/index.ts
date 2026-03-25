@@ -18,14 +18,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // ── Advisory lock: prevent concurrent runs ──
-    const { data: gotLock } = await supabase.rpc("try_automation_lock");
-    if (!gotLock) {
-      return new Response(JSON.stringify({ message: "Another run-automations invocation is in progress" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     // Fetch all active automations
     const { data: automations } = await supabase
       .from("automations")
