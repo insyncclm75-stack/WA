@@ -18,6 +18,54 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    // ── Handle outbound message status updates (DLRs) ──
+    let statuses: any[] = [];
+    if (body?.response?.whatsapp?.statuses) {
+      statuses = body.response.whatsapp.statuses;
+    } else if (body?.whatsapp?.statuses) {
+      statuses = body.whatsapp.statuses;
+    } else if (body?.statuses) {
+      statuses = body.statuses;
+    }
+
+    if (statuses.length > 0) {
+      for (const s of statuses) {
+        const sid = s.id || s.message_id || s.sid;
+        const newStatus = s.status?.toLowerCase();
+        if (!sid || !newStatus) continue;
+
+        // Map Exotel statuses to our status values
+        const statusMap: Record<string, string> = {
+          sent: "sent",
+          delivered: "delivered",
+          read: "read",
+          failed: "failed",
+          undelivered: "failed",
+        };
+        const mappedStatus = statusMap[newStatus];
+        if (!mappedStatus) continue;
+
+        // Only advance status (sent → delivered → read), never go backward
+        const statusRank: Record<string, number> = { failed: 0, sent: 1, delivered: 2, read: 3 };
+        const { data: existing } = await supabase
+          .from("messages")
+          .select("id, status")
+          .eq("exotel_message_id", sid)
+          .maybeSingle();
+
+        if (existing && (statusRank[mappedStatus] ?? 0) > (statusRank[existing.status] ?? 0)) {
+          await supabase
+            .from("messages")
+            .update({ status: mappedStatus })
+            .eq("id", existing.id);
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, statuses_processed: statuses.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ── Parse inbound messages ──
     // Handle nested format: { response: { whatsapp: { messages: [...] } } }
     // and flat format where the body IS the message array

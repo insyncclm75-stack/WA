@@ -142,6 +142,10 @@ serve(async (req) => {
           from: creds.senderNumber,
           to: contact.phone_number,
           content,
+          statusCallback: {
+            httpMethod: "POST",
+            url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`,
+          },
         }],
       },
     };

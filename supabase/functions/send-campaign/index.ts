@@ -339,6 +339,10 @@ serve(async (req) => {
               from: creds.senderNumber,
               to: contact.phone_number,
               content,
+              statusCallback: {
+                httpMethod: "POST",
+                url: `${supabaseUrl}/functions/v1/whatsapp-webhook`,
+              },
             }],
           },
         };

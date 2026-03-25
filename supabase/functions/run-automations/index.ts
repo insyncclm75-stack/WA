@@ -354,6 +354,7 @@ async function processStep(
       },
     };
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const payload = {
       whatsapp: {
         messages: [
@@ -361,6 +362,10 @@ async function processStep(
             from: creds.senderNumber,
             to: contact.phone_number,
             content,
+            statusCallback: {
+              httpMethod: "POST",
+              url: `${supabaseUrl}/functions/v1/whatsapp-webhook`,
+            },
           },
         ],
       },
