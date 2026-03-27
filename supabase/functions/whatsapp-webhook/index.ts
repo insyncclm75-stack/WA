@@ -170,7 +170,10 @@ serve(async (req) => {
         }
 
         // ── Resolve org by sender number ──
+        // Multiple orgs may share the same sender number (different formats).
+        // Collect ALL matching org IDs, then pick the one that owns the contact.
         let orgId: string | null = null;
+        const matchedOrgIds: string[] = [];
 
         // Build candidate formats for the business number
         const toCandidates = [...new Set([
@@ -181,68 +184,94 @@ serve(async (req) => {
         ].filter(Boolean) as string[])];
 
         for (const toCandidate of toCandidates) {
-          if (orgId) break;
-          // Check org_credentials.exotel_sender_number
+          // Check org_credentials.exotel_sender_number (may return multiple)
           const { data: credsBySender } = await supabase
             .from("org_credentials")
             .select("org_id")
-            .eq("exotel_sender_number", toCandidate)
-            .maybeSingle();
+            .eq("exotel_sender_number", toCandidate);
 
           if (credsBySender) {
-            orgId = credsBySender.org_id;
-            break;
+            for (const c of credsBySender) {
+              if (!matchedOrgIds.includes(c.org_id)) matchedOrgIds.push(c.org_id);
+            }
           }
 
           // Check org_credentials.phone_numbers array
           const { data: credsByPhone } = await supabase
             .from("org_credentials")
             .select("org_id")
-            .contains("phone_numbers", [toCandidate])
-            .maybeSingle();
+            .contains("phone_numbers", [toCandidate]);
 
           if (credsByPhone) {
-            orgId = credsByPhone.org_id;
+            for (const c of credsByPhone) {
+              if (!matchedOrgIds.includes(c.org_id)) matchedOrgIds.push(c.org_id);
+            }
           }
         }
 
-        // Fallback: match via EXOTEL_SENDER_NUMBER env var for default org
-        if (!orgId) {
+        // Fallback: match via EXOTEL_SENDER_NUMBER env var
+        if (matchedOrgIds.length === 0) {
           const envSenderNumber = Deno.env.get("EXOTEL_SENDER_NUMBER");
           const envMatch = envSenderNumber && toCandidates.some(
             (c) => c === envSenderNumber || normalizePhone(envSenderNumber) === c
           );
           if (envMatch) {
-            const { data: defaultOrg } = await supabase
+            // Add all orgs as candidates (env var is shared)
+            const { data: allOrgs } = await supabase
               .from("organizations")
               .select("id")
-              .order("created_at", { ascending: true })
-              .limit(1)
-              .maybeSingle();
-
-            if (defaultOrg) {
-              orgId = defaultOrg.id;
+              .order("created_at", { ascending: true });
+            if (allOrgs) {
+              for (const o of allOrgs) matchedOrgIds.push(o.id);
             }
           }
         }
 
         // Single-tenant fallback: pick any org
-        if (!orgId) {
+        if (matchedOrgIds.length === 0) {
           const { data: anyOrg } = await supabase
             .from("organizations")
             .select("id")
             .order("created_at", { ascending: true })
             .limit(1)
             .maybeSingle();
-
-          if (anyOrg) {
-            orgId = anyOrg.id;
-          }
+          if (anyOrg) matchedOrgIds.push(anyOrg.id);
         }
 
-        if (!orgId) {
+        if (matchedOrgIds.length === 0) {
           console.error("No org found for inbound message to:", toNumber);
           continue;
+        }
+
+        // If multiple orgs matched, pick the one that owns the sender contact
+        if (matchedOrgIds.length === 1) {
+          orgId = matchedOrgIds[0];
+        } else {
+          // Build phone candidates for the sender
+          const fromCandidates = [...new Set([
+            fromNumber,
+            rawFrom,
+            "+" + fromNumber,
+            fromNumber.startsWith("91") ? fromNumber.slice(2) : null,
+          ].filter(Boolean) as string[])];
+
+          for (const candidate of fromCandidates) {
+            if (orgId) break;
+            const { data: contactMatch } = await supabase
+              .from("contacts")
+              .select("org_id")
+              .eq("phone_number", candidate)
+              .in("org_id", matchedOrgIds)
+              .limit(1)
+              .maybeSingle();
+
+            if (contactMatch) {
+              orgId = contactMatch.org_id;
+            }
+          }
+
+          // If still no match, use first matched org
+          if (!orgId) orgId = matchedOrgIds[0];
         }
 
         // ── Find or create contact ──
