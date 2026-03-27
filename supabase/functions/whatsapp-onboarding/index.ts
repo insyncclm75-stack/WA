@@ -16,7 +16,35 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify auth
+    const body = await req.json();
+
+    // ── Detect Exotel webhook callbacks (inbound messages / DLR statuses) ──
+    // Exotel ISV sends ALL events to this URL, but inbound messages and
+    // status updates should be handled by whatsapp-webhook instead.
+    const hasMessages =
+      body?.response?.whatsapp?.messages ||
+      body?.whatsapp?.messages ||
+      body?.messages ||
+      body?.response?.whatsapp?.statuses ||
+      body?.whatsapp?.statuses ||
+      body?.statuses;
+    const isExotelCallback = hasMessages && !body.action;
+
+    if (isExotelCallback) {
+      // Forward to whatsapp-webhook for processing
+      const webhookRes = await fetch(`${supabaseUrl}/functions/v1/whatsapp-webhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const webhookResult = await webhookRes.text();
+      return new Response(webhookResult, {
+        status: webhookRes.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── Below is the admin setup flow — requires auth ──
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -33,7 +61,6 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
     const { action, org_id } = body;
 
     if (!org_id) {
