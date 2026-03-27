@@ -428,10 +428,20 @@ async function sendWhatsAppMessage(
     ? { type: "image", image: { link: params.media_url, caption: params.text } }
     : { type: "text", text: { body: params.text } };
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+
   const payload = {
     whatsapp: {
       messages: [
-        { from: creds.senderNumber, to: params.to, content },
+        {
+          from: creds.senderNumber,
+          to: params.to,
+          content,
+          statusCallback: {
+            httpMethod: "POST",
+            url: `${supabaseUrl}/functions/v1/message-status-callback`,
+          },
+        },
       ],
     },
   };
@@ -498,10 +508,20 @@ async function sendWhatsAppInteractive(
   }
 
   const content = { type: "interactive", interactive };
+  const supabaseUrl2 = Deno.env.get("SUPABASE_URL")!;
+
   const payload = {
     whatsapp: {
       messages: [
-        { from: creds.senderNumber, to: params.to, content },
+        {
+          from: creds.senderNumber,
+          to: params.to,
+          content,
+          statusCallback: {
+            httpMethod: "POST",
+            url: `${supabaseUrl2}/functions/v1/message-status-callback`,
+          },
+        },
       ],
     },
   };

@@ -163,7 +163,7 @@ serve(async (req) => {
             content: messageContent,
             statusCallback: {
               httpMethod: "POST",
-              url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/whatsapp-webhook`,
+              url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/message-status-callback`,
             },
           },
         ],

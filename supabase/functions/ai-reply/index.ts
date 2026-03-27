@@ -207,6 +207,10 @@ serve(async (req) => {
               type: "text",
               text: { preview_url: false, body: replyText },
             },
+            statusCallback: {
+              httpMethod: "POST",
+              url: `${supabaseUrl}/functions/v1/message-status-callback`,
+            },
           },
         ],
       },

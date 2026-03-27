@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.dpdp-manage]
 verify_jwt = false
+
+[functions.message-status-callback]
+verify_jwt = false

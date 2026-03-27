@@ -341,7 +341,7 @@ serve(async (req) => {
               content,
               statusCallback: {
                 httpMethod: "POST",
-                url: `${supabaseUrl}/functions/v1/whatsapp-webhook`,
+                url: `${supabaseUrl}/functions/v1/message-status-callback`,
               },
             }],
           },
