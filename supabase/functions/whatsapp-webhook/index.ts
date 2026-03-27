@@ -18,6 +18,18 @@ serve(async (req) => {
 
     const body = await req.json();
 
+    // ── Normalize phone number: strip +, spaces, dashes; ensure 91 prefix for Indian numbers ──
+    function normalizePhone(raw: string): string {
+      let num = raw.replace(/[\s\-\+\(\)]/g, "");
+      // Remove leading zeros
+      num = num.replace(/^0+/, "");
+      // If 10 digits (Indian local), prepend 91
+      if (/^\d{10}$/.test(num)) {
+        num = "91" + num;
+      }
+      return num;
+    }
+
     // ── Handle outbound message status updates (DLRs) ──
     let statuses: any[] = [];
     if (body?.response?.whatsapp?.statuses) {
@@ -89,8 +101,10 @@ serve(async (req) => {
     for (const msg of messages) {
       try {
         // ── Extract fields ──
-        const fromNumber = msg.from; // customer phone
-        const toNumber = msg.to;     // business phone / sender number
+        const rawFrom = msg.from; // customer phone
+        const rawTo = msg.to;     // business phone / sender number
+        const fromNumber = rawFrom ? normalizePhone(rawFrom) : "";
+        const toNumber = rawTo ? normalizePhone(rawTo) : "";
         const exotelMsgId = msg.id || msg.sid || msg.data?.sid || null;
         const contentType = msg.content?.type || "text";
         let textBody =
@@ -158,36 +172,47 @@ serve(async (req) => {
         // ── Resolve org by sender number ──
         let orgId: string | null = null;
 
-        if (toNumber) {
+        // Build candidate formats for the business number
+        const toCandidates = [...new Set([
+          toNumber,
+          rawTo,
+          "+" + toNumber,
+          toNumber.startsWith("91") ? toNumber.slice(2) : null,
+        ].filter(Boolean) as string[])];
+
+        for (const toCandidate of toCandidates) {
+          if (orgId) break;
           // Check org_credentials.exotel_sender_number
           const { data: credsBySender } = await supabase
             .from("org_credentials")
             .select("org_id")
-            .eq("exotel_sender_number", toNumber)
+            .eq("exotel_sender_number", toCandidate)
             .maybeSingle();
 
           if (credsBySender) {
             orgId = credsBySender.org_id;
+            break;
           }
 
           // Check org_credentials.phone_numbers array
-          if (!orgId) {
-            const { data: credsByPhone } = await supabase
-              .from("org_credentials")
-              .select("org_id")
-              .contains("phone_numbers", [toNumber])
-              .maybeSingle();
+          const { data: credsByPhone } = await supabase
+            .from("org_credentials")
+            .select("org_id")
+            .contains("phone_numbers", [toCandidate])
+            .maybeSingle();
 
-            if (credsByPhone) {
-              orgId = credsByPhone.org_id;
-            }
+          if (credsByPhone) {
+            orgId = credsByPhone.org_id;
           }
         }
 
         // Fallback: match via EXOTEL_SENDER_NUMBER env var for default org
         if (!orgId) {
           const envSenderNumber = Deno.env.get("EXOTEL_SENDER_NUMBER");
-          if (envSenderNumber && toNumber === envSenderNumber) {
+          const envMatch = envSenderNumber && toCandidates.some(
+            (c) => c === envSenderNumber || normalizePhone(envSenderNumber) === c
+          );
+          if (envMatch) {
             const { data: defaultOrg } = await supabase
               .from("organizations")
               .select("id")
@@ -221,14 +246,30 @@ serve(async (req) => {
         }
 
         // ── Find or create contact ──
+        // Try multiple phone formats to match existing contacts
         let contactId: string;
 
-        const { data: existingContact } = await supabase
-          .from("contacts")
-          .select("id")
-          .eq("phone_number", fromNumber)
-          .eq("org_id", orgId)
-          .maybeSingle();
+        // Build candidate phone formats: normalized, raw, with +, without country code
+        const phoneCandidates = [...new Set([
+          fromNumber,
+          rawFrom,
+          "+" + fromNumber,
+          fromNumber.startsWith("91") ? fromNumber.slice(2) : null,
+        ].filter(Boolean) as string[])];
+
+        let existingContact: { id: string } | null = null;
+        for (const candidate of phoneCandidates) {
+          const { data } = await supabase
+            .from("contacts")
+            .select("id")
+            .eq("phone_number", candidate)
+            .eq("org_id", orgId)
+            .maybeSingle();
+          if (data) {
+            existingContact = data;
+            break;
+          }
+        }
 
         if (existingContact) {
           contactId = existingContact.id;
