@@ -240,12 +240,56 @@ serve(async (req) => {
         }
       }
 
+      // ── Find or create conversation for this contact ──
+      let conversationId: string | null = null;
+      const now = new Date().toISOString();
+      const messagePreview = `[Campaign] ${message}`.substring(0, 100);
+
+      const { data: existingConvo } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("org_id", orgId)
+        .eq("contact_id", contact.id)
+        .maybeSingle();
+
+      if (existingConvo) {
+        conversationId = existingConvo.id;
+        await supabase
+          .from("conversations")
+          .update({
+            last_message_at: now,
+            last_message_preview: messagePreview,
+            updated_at: now,
+          })
+          .eq("id", existingConvo.id);
+      } else {
+        const { data: newConvo } = await supabase
+          .from("conversations")
+          .insert({
+            org_id: orgId,
+            contact_id: contact.id,
+            phone_number: contact.phone_number,
+            last_message_at: now,
+            last_message_preview: messagePreview,
+            status: "open",
+            ai_enabled: true,
+          })
+          .select("id")
+          .single();
+
+        if (newConvo) {
+          conversationId = newConvo.id;
+        }
+      }
+
       // Create message record
       const { data: msgRecord, error: msgInsertErr } = await supabase
         .from("messages")
         .insert({
           campaign_id,
           contact_id: contact.id,
+          conversation_id: conversationId,
+          direction: "outbound",
           content: message,
           media_url: campaign.media_url,
           status: "pending",
