@@ -930,12 +930,8 @@ export default function Landing() {
 
               <div className="relative">
                 <h2 className="text-3xl font-bold text-primary-foreground sm:text-5xl">
-                  Ready to reach your audience?
+                  Start with Rs 100 of free credit
                 </h2>
-                <p className="mx-auto mt-5 max-w-xl text-lg text-primary-foreground/80">
-                  Register free, get &#8377;100 credit, and send real messages
-                  to real contacts — no credit card required.
-                </p>
                 <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                   <Button
                     size="lg"
@@ -944,21 +940,10 @@ export default function Landing() {
                     asChild
                   >
                     <Link to="/login?signup=true">
-                      Start Free — &#8377;100 Credit
+                      Start today
                       <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
-                </div>
-                <div className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-primary-foreground/70">
-                  {[
-                    "No credit card required",
-                    "Multi-tenant isolation",
-                    "Enterprise-grade security",
-                  ].map((t) => (
-                    <span key={t} className="flex items-center gap-1.5">
-                      <CheckCircle className="h-4 w-4" /> {t}
-                    </span>
-                  ))}
                 </div>
               </div>
             </motion.div>
