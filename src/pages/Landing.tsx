@@ -689,133 +689,19 @@ export default function Landing() {
               variants={fadeUp}
               className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl"
             >
-              Simple, transparent pricing.{" "}
-              <span className="text-primary">Pay only for what you deliver.</span>
+              Start with{" "}
+              <span className="text-primary">&#8377;100 of free credit</span>
             </motion.h2>
-            <motion.p
-              variants={fadeUp}
-              className="mt-5 text-lg text-muted-foreground"
-            >
-              No platform fee. No monthly subscription. Top up your wallet and
-              send.
-            </motion.p>
           </AnimatedSection>
 
-          <AnimatedSection className="mt-16 grid gap-6 sm:grid-cols-3">
-            {/* Starter */}
-            <motion.div
-              variants={fadeUp}
-              className="rounded-2xl border border-border/60 bg-card/80 p-8 backdrop-blur-sm"
-            >
-              <p className="text-lg font-bold text-foreground">Starter</p>
-              <p className="mt-1 text-sm text-muted-foreground">For small teams &amp; newsletters</p>
-              <p className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">&#8377;999</span>
-                <span className="text-sm text-muted-foreground">/user/mo</span>
-              </p>
-              <p className="text-xs text-muted-foreground">Billed quarterly</p>
-              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
-                {[
-                  "10,000 messages/month",
-                  "Template message builder",
-                  "Contact management",
-                  "Delivery & read tracking",
-                  "Email support",
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button variant="outline" className="mt-8 w-full" asChild>
+          <AnimatedSection className="mt-10 flex justify-center">
+            <motion.div variants={fadeUp}>
+              <Button size="lg" className="text-lg px-10 py-6 shadow-lg shadow-primary/25" asChild>
                 <Link to="/login?signup=true">
-                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                  Start today <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             </motion.div>
-
-            {/* Growth (most popular) */}
-            <motion.div
-              variants={fadeUp}
-              className="relative rounded-2xl border-2 border-primary bg-card/80 p-8 shadow-xl shadow-primary/10 backdrop-blur-sm"
-            >
-              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-semibold text-primary-foreground">
-                Most Popular
-              </div>
-              <p className="text-lg font-bold text-foreground">Growth</p>
-              <p className="mt-1 text-sm text-muted-foreground">For scaling businesses</p>
-              <p className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">&#8377;2,499</span>
-                <span className="text-sm text-muted-foreground">/mo</span>
-              </p>
-              <p className="text-xs text-muted-foreground">Monthly or quarterly</p>
-              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
-                {[
-                  "50,000 messages/month",
-                  "Full automation workflows",
-                  "Chatbot builder",
-                  "AI Insights",
-                  "Multi-agent inbox",
-                  "Priority support",
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button className="mt-8 w-full shadow-lg shadow-primary/25" asChild>
-                <Link to="/login?signup=true">
-                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </motion.div>
-
-            {/* Scale */}
-            <motion.div
-              variants={fadeUp}
-              className="rounded-2xl border border-border/60 bg-card/80 p-8 backdrop-blur-sm"
-            >
-              <p className="text-lg font-bold text-foreground">Scale</p>
-              <p className="mt-1 text-sm text-muted-foreground">For high-volume senders</p>
-              <p className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-extrabold text-foreground">&#8377;5,999</span>
-                <span className="text-sm text-muted-foreground">/mo</span>
-              </p>
-              <p className="text-xs text-muted-foreground">Monthly or quarterly</p>
-              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
-                {[
-                  "2,00,000 messages/month",
-                  "Dedicated number",
-                  "Advanced analytics",
-                  "Multi-user & roles",
-                  "SLA-backed support",
-                ].map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button variant="outline" className="mt-8 w-full" asChild>
-                <Link to="/login?signup=true">
-                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-              </Button>
-            </motion.div>
-          </AnimatedSection>
-
-          <AnimatedSection className="mt-8">
-            <motion.p
-              variants={fadeUp}
-              className="text-center text-sm text-muted-foreground"
-            >
-              All paid plans include 18% GST. Need a custom plan?{" "}
-              <a href="mailto:support@insync.live" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80">
-                Contact us
-              </a>
-            </motion.p>
           </AnimatedSection>
         </div>
       </section>
