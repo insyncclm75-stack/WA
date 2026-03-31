@@ -49,12 +49,20 @@ const features = [
     iconColor: "text-violet-500",
   },
   {
+    icon: Zap,
+    title: "Instant Delivery",
+    description:
+      "Enterprise-grade WhatsApp Business API infrastructure for reliable, high-throughput message delivery at scale.",
+    gradient: "from-amber-500/20 to-orange-500/20",
+    iconColor: "text-amber-500",
+  },
+  {
     icon: Bot,
     title: "Chatbot Builder",
     description:
-      "Design visual chatbot flows with drag-and-drop — trigger on keywords, send buttons, lists, and auto-replies.",
-    gradient: "from-amber-500/20 to-orange-500/20",
-    iconColor: "text-amber-500",
+      "Build automated WhatsApp conversation flows — welcome messages, FAQ bots, lead qualification, and drip sequences. No coding required.",
+    gradient: "from-cyan-500/20 to-sky-500/20",
+    iconColor: "text-cyan-500",
   },
   {
     icon: Shield,
@@ -373,7 +381,7 @@ export default function Landing() {
                 asChild
               >
                 <Link to="/login?signup=true">
-                  Start Sending Free
+                  Start 14-Day Trial
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
@@ -397,7 +405,7 @@ export default function Landing() {
               transition={{ duration: 0.5, delay: 0.6 }}
               className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground"
             >
-              {["No credit card required", "Free 100 Rs balance", "Setup in 2 minutes"].map(
+              {["14-day trial \u00b7 No credit card", "Full access to all features", "Setup in 2 minutes"].map(
                 (t) => (
                   <span key={t} className="flex items-center gap-1.5">
                     <CheckCircle className="h-3.5 w-3.5 text-primary" />
@@ -681,134 +689,91 @@ export default function Landing() {
               variants={fadeUp}
               className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl"
             >
-              Simple, transparent{" "}
-              <span className="text-primary">pay-per-message</span>
+              Simple, transparent pricing.{" "}
+              <span className="text-primary">Pay only for what you deliver.</span>
             </motion.h2>
             <motion.p
               variants={fadeUp}
               className="mt-5 text-lg text-muted-foreground"
             >
-              No monthly platform fees. You only pay for messages that are
-              actually delivered.
+              No platform fee. No monthly subscription. Top up your wallet and
+              send.
             </motion.p>
           </AnimatedSection>
 
           <AnimatedSection className="mt-16">
             <motion.div
               variants={fadeUp}
-              className="mx-auto max-w-4xl rounded-3xl border border-border/60 bg-card/80 p-8 shadow-xl backdrop-blur-sm sm:p-10"
+              className="mx-auto max-w-3xl rounded-3xl border border-border/60 bg-card/80 p-8 shadow-xl backdrop-blur-sm sm:p-10"
             >
-              {/* Pricing grid */}
-              <div className="grid gap-6 sm:grid-cols-3">
-                {/* Marketing */}
-                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center">
-                  <p className="text-sm font-semibold uppercase tracking-wider text-primary">
-                    Marketing
-                  </p>
-                  <p className="mt-3 flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-extrabold text-foreground">
-                      &#8377;1.00
-                    </span>
-                    <span className="text-sm text-muted-foreground">/msg</span>
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Campaigns, promotions, offers
-                  </p>
-                </div>
-
-                {/* Utility */}
-                <div className="rounded-2xl border border-border/60 bg-muted/30 p-6 text-center">
-                  <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Utility
-                  </p>
-                  <p className="mt-3 flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-extrabold text-foreground">
-                      &#8377;0.35
-                    </span>
-                    <span className="text-sm text-muted-foreground">/msg</span>
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Order updates, alerts, reminders
-                  </p>
-                </div>
-
-                {/* Authentication */}
-                <div className="rounded-2xl border border-border/60 bg-muted/30 p-6 text-center">
-                  <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                    Authentication
-                  </p>
-                  <p className="mt-3 flex items-baseline justify-center gap-1">
-                    <span className="text-4xl font-extrabold text-foreground">
-                      &#8377;0.35
-                    </span>
-                    <span className="text-sm text-muted-foreground">/msg</span>
-                  </p>
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    OTPs, verification, login codes
-                  </p>
-                </div>
+              {/* Hero price */}
+              <div className="text-center">
+                <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+                  Per Message Delivered
+                </p>
+                <p className="mt-4 flex items-baseline justify-center gap-2">
+                  <span className="text-6xl font-extrabold text-foreground sm:text-7xl">
+                    &#8377;0.20
+                  </span>
+                  <span className="text-lg text-muted-foreground">/msg</span>
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Charged on delivery, not sending. Failed messages are free.
+                </p>
               </div>
 
-              {/* Highlights */}
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              {/* Wallet details */}
+              <div className="mt-10 grid gap-4 sm:grid-cols-2">
                 <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
                   <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      Prepaid Wallet
+                      Minimum wallet recharge: &#8377;500
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Min recharge &#8377;500. Top up anytime via Razorpay.
-                      Free &#8377;100 on signup.
+                      Unused balance never expires.
                     </p>
                   </div>
                 </div>
                 <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
-                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <IndianRupee className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      Billed on Delivery
+                      GST invoice on every recharge
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      You're only charged when the message is delivered —
-                      never for failed sends.
+                      18% GST included. Full tax compliance.
                     </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
-                  <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      No Hidden Fees
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Zero platform fees, zero setup charges. Just
-                      per-message pricing + 18% GST.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
-                  <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      Real-time Balance
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Track every debit with full transaction history and
-                      downloadable invoices.
-                    </p>
-                  </div>
-                </div>
+              </div>
+
+              {/* Trust signals */}
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
+                {[
+                  "Charged on delivery, not sending",
+                  "No hidden platform fees",
+                  "Wallet balance carries forward",
+                  "DPDP compliant",
+                ].map((t) => (
+                  <span key={t} className="flex items-center gap-1.5">
+                    <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                    {t}
+                  </span>
+                ))}
               </div>
 
               {/* CTA */}
               <div className="mt-8 text-center">
                 <Button size="lg" asChild className="shadow-lg shadow-primary/25">
                   <Link to="/login?signup=true">
-                    Start with Free &#8377;100 Balance
+                    Start 14-Day Trial
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
+                <p className="mt-3 text-xs text-muted-foreground">
+                  No credit card required
+                </p>
               </div>
             </motion.div>
           </AnimatedSection>
@@ -966,8 +931,7 @@ export default function Landing() {
                   Ready to reach your audience?
                 </h2>
                 <p className="mx-auto mt-5 max-w-xl text-lg text-primary-foreground/80">
-                  Register your organization in seconds and launch your first
-                  WhatsApp campaign today. Start with a free Rs 100 balance.
+                  14-day trial — full access, no credit card.
                 </p>
                 <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                   <Button
@@ -977,7 +941,7 @@ export default function Landing() {
                     asChild
                   >
                     <Link to="/login?signup=true">
-                      Register Your Organization
+                      Start 14-Day Trial
                       <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>

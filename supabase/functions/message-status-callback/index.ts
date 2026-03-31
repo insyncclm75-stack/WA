@@ -94,7 +94,7 @@ serve(async (req) => {
         // Find the message by exotel_message_id
         const { data: message } = await supabase
           .from("messages")
-          .select("id, status, conversation_id, org_id")
+          .select("id, status, conversation_id, org_id, campaign_id")
           .eq("exotel_message_id", exotelMessageId)
           .maybeSingle();
 
@@ -152,6 +152,45 @@ serve(async (req) => {
           console.error(`Failed to update message ${message.id}:`, updateError.message);
           skipped++;
           continue;
+        }
+
+        // ── Bill on delivery: charge wallet when message first reaches delivered/read ──
+        const wasPreDelivery = ["pending", "sent"].includes(message.status);
+        const isNowDelivered = ["delivered", "read"].includes(newStatus);
+        if (wasPreDelivery && isNowDelivered && message.org_id) {
+          try {
+            const MSG_RATE = 0.20;
+            const GST_RATE = 0.18;
+            const gst = Math.round(MSG_RATE * GST_RATE * 100) / 100;
+
+            // Determine billing category from campaign (default marketing)
+            let billingCategory = "marketing_message";
+            if (message.campaign_id) {
+              const { data: campaign } = await supabase
+                .from("campaigns")
+                .select("message_category")
+                .eq("id", message.campaign_id)
+                .maybeSingle();
+              const cat = campaign?.message_category || "marketing";
+              const catMap: Record<string, string> = {
+                marketing: "marketing_message",
+                utility: "utility_message",
+                authentication: "auth_message",
+              };
+              billingCategory = catMap[cat] || "marketing_message";
+            }
+
+            await supabase.rpc("debit_wallet_on_delivery", {
+              _org_id: message.org_id,
+              _base_amount: MSG_RATE,
+              _gst_amount: gst,
+              _category: billingCategory,
+              _description: `Message delivered`,
+              _reference_id: message.id,
+            });
+          } catch (billingErr) {
+            console.error(`Billing failed for message ${message.id}:`, (billingErr as Error).message);
+          }
         }
 
         // Fire outbound webhook for status change event

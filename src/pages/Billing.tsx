@@ -128,8 +128,8 @@ export default function Billing() {
 
   const handleAddFunds = async () => {
     const amount = parseFloat(topUpAmount);
-    if (isNaN(amount) || amount < 100) {
-      toast({ variant: "destructive", title: "Invalid amount", description: "Minimum top-up is Rs 100." });
+    if (isNaN(amount) || amount < 500) {
+      toast({ variant: "destructive", title: "Invalid amount", description: "Minimum top-up is Rs 500." });
       return;
     }
 
@@ -290,7 +290,7 @@ export default function Billing() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Type</TableHead>
-                        <TableHead className="text-right">Messages Sent</TableHead>
+                        <TableHead className="text-right">Messages Delivered</TableHead>
                         <TableHead className="text-right">Rate</TableHead>
                         <TableHead className="text-right">Cost</TableHead>
                       </TableRow>
@@ -313,10 +313,6 @@ export default function Billing() {
                         <TableCell className="text-right">{usage.usage.authentication.count}</TableCell>
                         <TableCell className="text-right">{formatCurrency(usage.usage.authentication.rate)}</TableCell>
                         <TableCell className="text-right">{formatCurrency(usage.usage.authentication.cost)}</TableCell>
-                      </TableRow>
-                      <TableRow className="border-t-2">
-                        <TableCell colSpan={3} className="font-medium">Platform Fee</TableCell>
-                        <TableCell className="text-right">{formatCurrency(usage.platform_fee)}</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell colSpan={3} className="font-medium">Subtotal</TableCell>
@@ -414,7 +410,6 @@ export default function Billing() {
                         <TableHead>Month</TableHead>
                         <TableHead className="text-right">Messages</TableHead>
                         <TableHead className="text-right">Message Cost</TableHead>
-                        <TableHead className="text-right">Platform Fee</TableHead>
                         <TableHead className="text-right">GST</TableHead>
                         <TableHead className="text-right">Total</TableHead>
                         <TableHead>Status</TableHead>
@@ -426,7 +421,6 @@ export default function Billing() {
                           <TableCell className="font-medium">{inv.month}</TableCell>
                           <TableCell className="text-right">{inv.marketing_count + inv.utility_count + inv.auth_count}</TableCell>
                           <TableCell className="text-right">{formatCurrency(inv.marketing_cost + inv.utility_cost + inv.auth_cost)}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(inv.platform_fee)}</TableCell>
                           <TableCell className="text-right">{formatCurrency(inv.gst_amount)}</TableCell>
                           <TableCell className="text-right font-bold">{formatCurrency(inv.total)}</TableCell>
                           <TableCell>
@@ -448,38 +442,32 @@ export default function Billing() {
             <Card>
               <CardHeader>
                 <CardTitle>Pricing</CardTitle>
-                <CardDescription>All prices are exclusive of GST (18%)</CardDescription>
+                <CardDescription>Simple, transparent pay-per-message. No platform fees.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <div className="rounded-lg border p-4 text-center">
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-6 text-center">
                     <MessageSquare className="mx-auto mb-2 h-8 w-8 text-primary" />
-                    <p className="text-sm text-muted-foreground">Marketing</p>
-                    <p className="text-2xl font-bold">Re 1.00</p>
-                    <p className="text-xs text-muted-foreground">per message sent</p>
+                    <p className="text-sm font-medium text-muted-foreground">All Messages</p>
+                    <p className="text-3xl font-bold">Re 0.20</p>
+                    <p className="text-xs text-muted-foreground">per message delivered</p>
                   </div>
-                  <div className="rounded-lg border p-4 text-center">
-                    <MessageSquare className="mx-auto mb-2 h-8 w-8 text-blue-500" />
-                    <p className="text-sm text-muted-foreground">Utility</p>
-                    <p className="text-2xl font-bold">Re 0.20</p>
-                    <p className="text-xs text-muted-foreground">per message sent</p>
-                  </div>
-                  <div className="rounded-lg border p-4 text-center">
-                    <MessageSquare className="mx-auto mb-2 h-8 w-8 text-amber-500" />
-                    <p className="text-sm text-muted-foreground">Authentication</p>
-                    <p className="text-2xl font-bold">Re 0.20</p>
-                    <p className="text-xs text-muted-foreground">per message sent</p>
-                  </div>
-                  <div className="rounded-lg border p-4 text-center">
+                  <div className="rounded-lg border p-6 text-center">
                     <IndianRupee className="mx-auto mb-2 h-8 w-8 text-green-500" />
-                    <p className="text-sm text-muted-foreground">Platform Fee</p>
-                    <p className="text-2xl font-bold">Rs 1,500</p>
-                    <p className="text-xs text-muted-foreground">per month</p>
+                    <p className="text-sm font-medium text-muted-foreground">Min Recharge</p>
+                    <p className="text-3xl font-bold">Rs 500</p>
+                    <p className="text-xs text-muted-foreground">balance never expires</p>
+                  </div>
+                  <div className="rounded-lg border p-6 text-center">
+                    <Receipt className="mx-auto mb-2 h-8 w-8 text-amber-500" />
+                    <p className="text-sm font-medium text-muted-foreground">GST</p>
+                    <p className="text-3xl font-bold">18%</p>
+                    <p className="text-xs text-muted-foreground">invoice on every recharge</p>
                   </div>
                 </div>
                 <p className="mt-4 text-sm text-muted-foreground">
-                  GST at 18% is charged on all amounts. Messages are charged on sent status, not delivery.
-                  Sending requires a positive wallet balance.
+                  You are only charged when a message is delivered — never for failed sends.
+                  No hidden fees, no monthly subscriptions. Wallet balance carries forward.
                 </p>
               </CardContent>
             </Card>
@@ -499,12 +487,12 @@ export default function Billing() {
               <Label>Amount (Rs)</Label>
               <Input
                 type="number"
-                min="100"
+                min="500"
                 value={topUpAmount}
                 onChange={(e) => setTopUpAmount(e.target.value)}
                 placeholder="1000"
               />
-              <p className="text-xs text-muted-foreground">Minimum Rs 100</p>
+              <p className="text-xs text-muted-foreground">Minimum Rs 500</p>
             </div>
             <div className="flex gap-2">
               {[500, 1000, 2000, 5000].map((amt) => (

@@ -143,7 +143,12 @@ export function AiInsights({ type, context, className }: AiInsightsProps) {
               );
             })}
           </div>
-        ) : null}
+        ) : (
+          <div className="flex flex-col items-center gap-2 py-4 text-center">
+            <Sparkles className="h-5 w-5 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">Send your first campaign to unlock insights.</p>
+          </div>
+        )}
         {loading && insight && (
           <p className="mt-2 text-xs text-muted-foreground">Refreshing...</p>
         )}

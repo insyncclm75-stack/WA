@@ -133,7 +133,7 @@ export default function CreateOrg() {
               </div>
             ))}
           </div>
-          <p className="text-xs text-white/40">Powered by Exotel WhatsApp Business API</p>
+          <p className="text-xs text-white/40">Official WhatsApp Business API</p>
         </div>
       </div>
 

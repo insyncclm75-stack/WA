@@ -8,11 +8,11 @@ const corsHeaders = {
 };
 
 const GST_RATE = 0.18;
-const PLATFORM_FEE = 1500;
+const PLATFORM_FEE = 0;
 const RATES: Record<string, number> = {
-  marketing: 1.0,
-  utility: 0.2,
-  authentication: 0.2,
+  marketing: 0.20,
+  utility: 0.20,
+  authentication: 0.20,
 };
 
 serve(async (req) => {
@@ -190,11 +190,12 @@ serve(async (req) => {
       let marketing = 0, utility = 0, auth = 0;
 
       if (campaignIds.length > 0) {
+        // Count delivered messages (billing is on delivery, not sent)
         const { data: messages } = await supabase
           .from("messages")
           .select("campaign_id")
           .eq("org_id", org_id)
-          .eq("status", "sent")
+          .in("status", ["delivered", "read"])
           .gte("sent_at", startDate)
           .lt("sent_at", endDate);
 
@@ -271,8 +272,8 @@ serve(async (req) => {
       }
 
       const { amount } = body; // amount in Rs
-      if (!amount || amount < 100) {
-        return new Response(JSON.stringify({ error: "Minimum top-up amount is Rs 100" }), {
+      if (!amount || amount < 500) {
+        return new Response(JSON.stringify({ error: "Minimum top-up amount is Rs 500" }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
