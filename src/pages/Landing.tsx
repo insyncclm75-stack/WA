@@ -684,9 +684,6 @@ export default function Landing() {
               variants={fadeUp}
               className="relative w-full max-w-lg rounded-3xl border-2 border-primary bg-gradient-to-br from-primary/10 via-card to-primary/5 p-10 text-center shadow-2xl shadow-primary/15 backdrop-blur-sm"
             >
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-5 py-1.5 text-xs font-semibold tracking-wide text-primary-foreground shadow-md">
-                LIMITED OFFER
-              </div>
               <IndianRupee className="mx-auto h-10 w-10 text-primary/80" />
               <h3 className="mt-4 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
                 Start with &#8377;100 of free credit
