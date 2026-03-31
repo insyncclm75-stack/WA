@@ -685,18 +685,24 @@ export default function Landing() {
               <IndianRupee className="h-3.5 w-3.5" />
               Pricing
             </motion.div>
-            <motion.h2
-              variants={fadeUp}
-              className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl"
-            >
-              Start with{" "}
-              <span className="text-primary">&#8377;100 of free credit</span>
-            </motion.h2>
           </AnimatedSection>
 
-          <AnimatedSection className="mt-10 flex justify-center">
-            <motion.div variants={fadeUp}>
-              <Button size="lg" className="text-lg px-10 py-6 shadow-lg shadow-primary/25" asChild>
+          <AnimatedSection className="mt-12 flex justify-center">
+            <motion.div
+              variants={fadeUp}
+              className="relative w-full max-w-lg rounded-3xl border-2 border-primary bg-gradient-to-br from-primary/10 via-card to-primary/5 p-10 text-center shadow-2xl shadow-primary/15 backdrop-blur-sm"
+            >
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-primary px-5 py-1.5 text-xs font-semibold tracking-wide text-primary-foreground shadow-md">
+                LIMITED OFFER
+              </div>
+              <IndianRupee className="mx-auto h-10 w-10 text-primary/80" />
+              <h3 className="mt-4 text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+                Start with &#8377;100 of free credit
+              </h3>
+              <p className="mt-3 text-muted-foreground">
+                No subscription. No commitment. Just sign up and start sending.
+              </p>
+              <Button size="lg" className="mt-8 text-lg px-12 py-6 shadow-lg shadow-primary/25" asChild>
                 <Link to="/login?signup=true">
                   Start today <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
