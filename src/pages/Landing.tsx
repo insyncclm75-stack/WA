@@ -72,14 +72,6 @@ const features = [
     gradient: "from-rose-500/20 to-pink-500/20",
     iconColor: "text-rose-500",
   },
-  {
-    icon: MessageCircle,
-    title: "Communications Hub",
-    description:
-      "Monitor every message in real-time with status tracking from sent to delivered to read.",
-    gradient: "from-teal-500/20 to-emerald-500/20",
-    iconColor: "text-teal-500",
-  },
 ];
 
 const stats = [
