@@ -701,83 +701,121 @@ export default function Landing() {
             </motion.p>
           </AnimatedSection>
 
-          <AnimatedSection className="mt-16">
+          <AnimatedSection className="mt-16 grid gap-6 sm:grid-cols-3">
+            {/* Starter */}
             <motion.div
               variants={fadeUp}
-              className="mx-auto max-w-3xl rounded-3xl border border-border/60 bg-card/80 p-8 shadow-xl backdrop-blur-sm sm:p-10"
+              className="rounded-2xl border border-border/60 bg-card/80 p-8 backdrop-blur-sm"
             >
-              {/* Hero price */}
-              <div className="text-center">
-                <p className="text-sm font-semibold uppercase tracking-wider text-primary">
-                  Per Message Delivered
-                </p>
-                <p className="mt-4 flex items-baseline justify-center gap-2">
-                  <span className="text-sm text-muted-foreground">from</span>
-                  <span className="text-6xl font-extrabold text-foreground sm:text-7xl">
-                    &#8377;0.15
-                  </span>
-                  <span className="text-lg text-muted-foreground">/msg</span>
-                </p>
-                <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto">
-                  Final rate depends on message type — marketing, utility, or
-                  authentication. Transparent breakdown in your billing dashboard.
-                </p>
-              </div>
-
-              {/* Wallet model */}
-              <div className="mt-10 grid gap-4 sm:grid-cols-2">
-                <div className="flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 p-4">
-                  <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      &#8377;100 free credit on signup
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Send real messages to real contacts. Credit expires with use, not time.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
-                  <IndianRupee className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      Top up from &#8377;500
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Wallet balance never expires. GST invoice on every recharge.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Trust signals */}
-              <div className="mt-8 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-muted-foreground">
+              <p className="text-lg font-bold text-foreground">Starter</p>
+              <p className="mt-1 text-sm text-muted-foreground">For small teams &amp; newsletters</p>
+              <p className="mt-6 flex items-baseline gap-1">
+                <span className="text-4xl font-extrabold text-foreground">&#8377;999</span>
+                <span className="text-sm text-muted-foreground">/user/mo</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Billed quarterly</p>
+              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
                 {[
-                  "Charged on delivery, not sending",
-                  "No hidden platform fees",
-                  "Wallet balance carries forward",
-                  "DPDP compliant",
-                ].map((t) => (
-                  <span key={t} className="flex items-center gap-1.5">
-                    <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                    {t}
-                  </span>
+                  "10,000 messages/month",
+                  "Template message builder",
+                  "Contact management",
+                  "Delivery & read tracking",
+                  "Email support",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
+                    {f}
+                  </li>
                 ))}
-              </div>
-
-              {/* CTA */}
-              <div className="mt-8 text-center">
-                <p className="text-lg font-semibold text-foreground">
-                  Start with Rs 100 of free credit
-                </p>
-                <Button size="lg" asChild className="mt-4 shadow-lg shadow-primary/25">
-                  <Link to="/login?signup=true">
-                    Start today
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
+              </ul>
+              <Button variant="outline" className="mt-8 w-full" asChild>
+                <Link to="/login?signup=true">
+                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
             </motion.div>
+
+            {/* Growth (most popular) */}
+            <motion.div
+              variants={fadeUp}
+              className="relative rounded-2xl border-2 border-primary bg-card/80 p-8 shadow-xl shadow-primary/10 backdrop-blur-sm"
+            >
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-4 py-1 text-xs font-semibold text-primary-foreground">
+                Most Popular
+              </div>
+              <p className="text-lg font-bold text-foreground">Growth</p>
+              <p className="mt-1 text-sm text-muted-foreground">For scaling businesses</p>
+              <p className="mt-6 flex items-baseline gap-1">
+                <span className="text-4xl font-extrabold text-foreground">&#8377;2,499</span>
+                <span className="text-sm text-muted-foreground">/mo</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Monthly or quarterly</p>
+              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
+                {[
+                  "50,000 messages/month",
+                  "Full automation workflows",
+                  "Chatbot builder",
+                  "AI Insights",
+                  "Multi-agent inbox",
+                  "Priority support",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Button className="mt-8 w-full shadow-lg shadow-primary/25" asChild>
+                <Link to="/login?signup=true">
+                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </motion.div>
+
+            {/* Scale */}
+            <motion.div
+              variants={fadeUp}
+              className="rounded-2xl border border-border/60 bg-card/80 p-8 backdrop-blur-sm"
+            >
+              <p className="text-lg font-bold text-foreground">Scale</p>
+              <p className="mt-1 text-sm text-muted-foreground">For high-volume senders</p>
+              <p className="mt-6 flex items-baseline gap-1">
+                <span className="text-4xl font-extrabold text-foreground">&#8377;5,999</span>
+                <span className="text-sm text-muted-foreground">/mo</span>
+              </p>
+              <p className="text-xs text-muted-foreground">Monthly or quarterly</p>
+              <ul className="mt-6 space-y-3 text-sm text-muted-foreground">
+                {[
+                  "2,00,000 messages/month",
+                  "Dedicated number",
+                  "Advanced analytics",
+                  "Multi-user & roles",
+                  "SLA-backed support",
+                ].map((f) => (
+                  <li key={f} className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 shrink-0 text-primary" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Button variant="outline" className="mt-8 w-full" asChild>
+                <Link to="/login?signup=true">
+                  Start Free Trial <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            </motion.div>
+          </AnimatedSection>
+
+          <AnimatedSection className="mt-8">
+            <motion.p
+              variants={fadeUp}
+              className="text-center text-sm text-muted-foreground"
+            >
+              All paid plans include 18% GST. Need a custom plan?{" "}
+              <a href="mailto:support@insync.live" className="font-medium text-primary underline underline-offset-4 hover:text-primary/80">
+                Contact us
+              </a>
+            </motion.p>
           </AnimatedSection>
         </div>
       </section>
