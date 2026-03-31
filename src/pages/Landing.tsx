@@ -16,6 +16,9 @@ import {
   Globe,
   Clock,
   TrendingUp,
+  Bot,
+  Wallet,
+  IndianRupee,
 } from "lucide-react";
 
 /* ── data ─────────────────────────────────────────────── */
@@ -46,10 +49,10 @@ const features = [
     iconColor: "text-violet-500",
   },
   {
-    icon: Zap,
-    title: "Instant Delivery",
+    icon: Bot,
+    title: "Chatbot Builder",
     description:
-      "Powered by Exotel's WhatsApp Business API for reliable, high-throughput message delivery.",
+      "Design visual chatbot flows with drag-and-drop — trigger on keywords, send buttons, lists, and auto-replies.",
     gradient: "from-amber-500/20 to-orange-500/20",
     iconColor: "text-amber-500",
   },
@@ -263,6 +266,12 @@ export default function Landing() {
               <a href="#features">Features</a>
             </Button>
             <Button variant="ghost" className="hidden sm:inline-flex" asChild>
+              <a href="#chatbot">Chatbot</a>
+            </Button>
+            <Button variant="ghost" className="hidden sm:inline-flex" asChild>
+              <a href="#pricing">Pricing</a>
+            </Button>
+            <Button variant="ghost" className="hidden sm:inline-flex" asChild>
               <a href="#how-it-works">How It Works</a>
             </Button>
             <Button variant="ghost" asChild>
@@ -314,7 +323,7 @@ export default function Landing() {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
               </span>
-              Powered by Exotel WhatsApp Business API
+              Official WhatsApp Business API
             </motion.div>
 
             {/* Headline */}
@@ -537,6 +546,271 @@ export default function Landing() {
                 </div>
               </motion.div>
             ))}
+          </AnimatedSection>
+        </div>
+      </section>
+
+      {/* ── Chatbot Builder Showcase ────────────────── */}
+      <section id="chatbot" className="relative border-t border-border/50 bg-muted/30">
+        <div className="mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32">
+          <div className="grid items-center gap-12 lg:grid-cols-2">
+            {/* Left — copy */}
+            <AnimatedSection>
+              <motion.div
+                variants={fadeUp}
+                className="mb-4 inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-4 py-1.5 text-sm font-medium text-amber-600 dark:text-amber-400"
+              >
+                <Bot className="h-3.5 w-3.5" />
+                Chatbot Builder
+              </motion.div>
+              <motion.h2
+                variants={fadeUp}
+                className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl"
+              >
+                Automate conversations{" "}
+                <span className="text-primary">visually</span>
+              </motion.h2>
+              <motion.p
+                variants={fadeUp}
+                className="mt-5 text-lg leading-relaxed text-muted-foreground"
+              >
+                Build intelligent WhatsApp chatbots with our drag-and-drop flow
+                editor. No code required — just connect trigger nodes, message
+                steps, and reply handlers to create rich conversational
+                experiences.
+              </motion.p>
+              <motion.ul variants={fadeUp} className="mt-8 space-y-4">
+                {[
+                  "Keyword, first-message & catch-all triggers",
+                  "Send text, quick-reply buttons & list menus",
+                  "Wait-for-reply nodes with branching logic",
+                  "Real-time session analytics",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    {item}
+                  </li>
+                ))}
+              </motion.ul>
+              <motion.div variants={fadeUp} className="mt-8">
+                <Button asChild className="shadow-lg shadow-primary/25">
+                  <Link to="/login?signup=true">
+                    Try Chatbot Builder <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </motion.div>
+            </AnimatedSection>
+
+            {/* Right — visual mockup */}
+            <AnimatedSection>
+              <motion.div
+                variants={fadeUp}
+                className="relative rounded-2xl border border-border/60 bg-card/80 p-6 shadow-xl backdrop-blur-sm"
+              >
+                {/* Flow mockup */}
+                <div className="space-y-4">
+                  {/* Trigger node */}
+                  <div className="flex items-center gap-3 rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/20">
+                      <Zap className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-green-600 dark:text-green-400">Trigger</p>
+                      <p className="text-sm font-semibold text-foreground">Keyword: "hello"</p>
+                    </div>
+                  </div>
+
+                  {/* Connector */}
+                  <div className="flex justify-center">
+                    <div className="h-6 w-px bg-border" />
+                  </div>
+
+                  {/* Message node */}
+                  <div className="flex items-center gap-3 rounded-xl border border-blue-500/30 bg-blue-500/5 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500/20">
+                      <MessageCircle className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-blue-600 dark:text-blue-400">Send Message</p>
+                      <p className="text-sm font-semibold text-foreground">"Welcome! How can we help?"</p>
+                    </div>
+                  </div>
+
+                  {/* Connector */}
+                  <div className="flex justify-center">
+                    <div className="h-6 w-px bg-border" />
+                  </div>
+
+                  {/* Buttons node */}
+                  <div className="flex items-center gap-3 rounded-xl border border-purple-500/30 bg-purple-500/5 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-500/20">
+                      <Send className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-purple-600 dark:text-purple-400">Quick Replies</p>
+                      <div className="mt-1 flex gap-2">
+                        <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">Sales</span>
+                        <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">Support</span>
+                        <span className="rounded-full border border-purple-500/30 bg-purple-500/10 px-3 py-0.5 text-xs font-medium text-purple-600 dark:text-purple-400">Pricing</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            </AnimatedSection>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ──────────────────────────────────── */}
+      <section id="pricing" className="relative overflow-hidden border-t border-border/50">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute top-0 right-1/4 h-[500px] w-[600px] rounded-full bg-primary/[0.03] blur-[120px]" />
+        </div>
+
+        <div className="relative mx-auto max-w-6xl px-4 py-24 sm:px-6 sm:py-32">
+          <AnimatedSection className="mx-auto max-w-2xl text-center">
+            <motion.div
+              variants={fadeUp}
+              className="mb-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary"
+            >
+              <IndianRupee className="h-3.5 w-3.5" />
+              Pricing
+            </motion.div>
+            <motion.h2
+              variants={fadeUp}
+              className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl"
+            >
+              Simple, transparent{" "}
+              <span className="text-primary">pay-per-message</span>
+            </motion.h2>
+            <motion.p
+              variants={fadeUp}
+              className="mt-5 text-lg text-muted-foreground"
+            >
+              No monthly platform fees. You only pay for messages that are
+              actually delivered.
+            </motion.p>
+          </AnimatedSection>
+
+          <AnimatedSection className="mt-16">
+            <motion.div
+              variants={fadeUp}
+              className="mx-auto max-w-4xl rounded-3xl border border-border/60 bg-card/80 p-8 shadow-xl backdrop-blur-sm sm:p-10"
+            >
+              {/* Pricing grid */}
+              <div className="grid gap-6 sm:grid-cols-3">
+                {/* Marketing */}
+                <div className="rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+                    Marketing
+                  </p>
+                  <p className="mt-3 flex items-baseline justify-center gap-1">
+                    <span className="text-4xl font-extrabold text-foreground">
+                      &#8377;1.00
+                    </span>
+                    <span className="text-sm text-muted-foreground">/msg</span>
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Campaigns, promotions, offers
+                  </p>
+                </div>
+
+                {/* Utility */}
+                <div className="rounded-2xl border border-border/60 bg-muted/30 p-6 text-center">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Utility
+                  </p>
+                  <p className="mt-3 flex items-baseline justify-center gap-1">
+                    <span className="text-4xl font-extrabold text-foreground">
+                      &#8377;0.35
+                    </span>
+                    <span className="text-sm text-muted-foreground">/msg</span>
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Order updates, alerts, reminders
+                  </p>
+                </div>
+
+                {/* Authentication */}
+                <div className="rounded-2xl border border-border/60 bg-muted/30 p-6 text-center">
+                  <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Authentication
+                  </p>
+                  <p className="mt-3 flex items-baseline justify-center gap-1">
+                    <span className="text-4xl font-extrabold text-foreground">
+                      &#8377;0.35
+                    </span>
+                    <span className="text-sm text-muted-foreground">/msg</span>
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    OTPs, verification, login codes
+                  </p>
+                </div>
+              </div>
+
+              {/* Highlights */}
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
+                  <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Prepaid Wallet
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Min recharge &#8377;500. Top up anytime via Razorpay.
+                      Free &#8377;100 on signup.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
+                  <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Billed on Delivery
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      You're only charged when the message is delivered —
+                      never for failed sends.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
+                  <Shield className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      No Hidden Fees
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Zero platform fees, zero setup charges. Just
+                      per-message pricing + 18% GST.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
+                  <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      Real-time Balance
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Track every debit with full transaction history and
+                      downloadable invoices.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <div className="mt-8 text-center">
+                <Button size="lg" asChild className="shadow-lg shadow-primary/25">
+                  <Link to="/login?signup=true">
+                    Start with Free &#8377;100 Balance
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+            </motion.div>
           </AnimatedSection>
         </div>
       </section>
