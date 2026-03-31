@@ -767,15 +767,15 @@ export default function Landing() {
 
               {/* CTA */}
               <div className="mt-8 text-center">
-                <Button size="lg" asChild className="shadow-lg shadow-primary/25">
+                <p className="text-lg font-semibold text-foreground">
+                  Start with Rs 100 of free credit
+                </p>
+                <Button size="lg" asChild className="mt-4 shadow-lg shadow-primary/25">
                   <Link to="/login?signup=true">
-                    Start Free — &#8377;100 Credit
+                    Start today
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
-                <p className="mt-3 text-xs text-muted-foreground">
-                  No credit card required
-                </p>
               </div>
             </motion.div>
           </AnimatedSection>
