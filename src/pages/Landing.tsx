@@ -381,7 +381,7 @@ export default function Landing() {
                 asChild
               >
                 <Link to="/login?signup=true">
-                  Start 14-Day Trial
+                  Start Free — &#8377;100 Credit
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
@@ -405,7 +405,7 @@ export default function Landing() {
               transition={{ duration: 0.5, delay: 0.6 }}
               className="mt-8 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground"
             >
-              {["14-day trial \u00b7 No credit card", "Full access to all features", "Setup in 2 minutes"].map(
+              {["\u20b9100 free credit on signup", "No credit card required", "Setup in 2 minutes"].map(
                 (t) => (
                   <span key={t} className="flex items-center gap-1.5">
                     <CheckCircle className="h-3.5 w-3.5 text-primary" />
@@ -712,26 +712,28 @@ export default function Landing() {
                   Per Message Delivered
                 </p>
                 <p className="mt-4 flex items-baseline justify-center gap-2">
+                  <span className="text-sm text-muted-foreground">from</span>
                   <span className="text-6xl font-extrabold text-foreground sm:text-7xl">
-                    &#8377;0.20
+                    &#8377;0.15
                   </span>
                   <span className="text-lg text-muted-foreground">/msg</span>
                 </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Charged on delivery, not sending. Failed messages are free.
+                <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto">
+                  Final rate depends on message type — marketing, utility, or
+                  authentication. Transparent breakdown in your billing dashboard.
                 </p>
               </div>
 
-              {/* Wallet details */}
+              {/* Wallet model */}
               <div className="mt-10 grid gap-4 sm:grid-cols-2">
-                <div className="flex items-start gap-3 rounded-xl bg-muted/30 p-4">
+                <div className="flex items-start gap-3 rounded-xl bg-primary/5 border border-primary/20 p-4">
                   <Wallet className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      Minimum wallet recharge: &#8377;500
+                      &#8377;100 free credit on signup
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Unused balance never expires.
+                      Send real messages to real contacts. Credit expires with use, not time.
                     </p>
                   </div>
                 </div>
@@ -739,10 +741,10 @@ export default function Landing() {
                   <IndianRupee className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      GST invoice on every recharge
+                      Top up from &#8377;500
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      18% GST included. Full tax compliance.
+                      Wallet balance never expires. GST invoice on every recharge.
                     </p>
                   </div>
                 </div>
@@ -767,7 +769,7 @@ export default function Landing() {
               <div className="mt-8 text-center">
                 <Button size="lg" asChild className="shadow-lg shadow-primary/25">
                   <Link to="/login?signup=true">
-                    Start 14-Day Trial
+                    Start Free — &#8377;100 Credit
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
@@ -931,7 +933,8 @@ export default function Landing() {
                   Ready to reach your audience?
                 </h2>
                 <p className="mx-auto mt-5 max-w-xl text-lg text-primary-foreground/80">
-                  14-day trial — full access, no credit card.
+                  Register free, get &#8377;100 credit, and send real messages
+                  to real contacts — no credit card required.
                 </p>
                 <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
                   <Button
@@ -941,7 +944,7 @@ export default function Landing() {
                     asChild
                   >
                     <Link to="/login?signup=true">
-                      Start 14-Day Trial
+                      Start Free — &#8377;100 Credit
                       <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                     </Link>
                   </Button>
