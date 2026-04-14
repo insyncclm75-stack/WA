@@ -30,6 +30,7 @@ import AuditLog from "./pages/AuditLog";
 import DpdpCompliance from "./pages/DpdpCompliance";
 import ResetPassword from "./pages/ResetPassword";
 import Demo from "./pages/Demo";
+import HowItWorks from "./pages/HowItWorks";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -51,6 +52,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/demo" element={<Demo />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
               <Route path="/login" element={<Login />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/create-org" element={<CreateOrg />} />
